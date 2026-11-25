@@ -100,11 +100,16 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    `HOLLER_ERATE_ENABLED=1`, redeploy that preview, then call
    `GET <preview url>/api/cron/scan?dry=1&source=bids-erate` with the cron bearer secret. It makes the one (paged) request to the public
    USAC SODA endpoint, keeps only schools and libraries in served areas with an Internal Connections cabling installation line and an
-   allowable contract date after today, and writes nothing. Read the sample titles and summaries: each should say "A school (or library,
-   district ...) in <city> is asking for bids on network cabling", an institution name only when it ends in School, Library, District
-   and the like, and the date as "contract may be signed from <date>". It must show no person, phone, email or street address, and the
-   log line must say "page" counts and no "WARNING page limit reached". The combined SoQL query was never run against the live portal by
-   the people who wrote it (no network from the build shell), so a 400 here ("error: bids-erate HTTP 400") means the query needs a fix.
+   allowable contract date at least two days away, and writes nothing. A dry scan shows only the counts in the log, the HTTP status and
+   THREE titles per source (lib/signals/run.ts), no summary and no link, so it cannot show what a stored card holds. Read from it: no
+   "error: bids-erate HTTP 400" (the combined SoQL query was never run against the live portal by the people who wrote it, so a 400
+   means the query needs a fix), the page and kept counts, no "WARNING page limit reached" or "WARNING time budget reached", and three
+   titles of the form "A school (or library, district ...) in <city> is asking for bids on network cabling". The card never prints the
+   institution's name or the city the applicant typed; the city is the ZIP table's. THEN, still on Preview, run a real (not dry) scan,
+   `GET <preview url>/api/cron/scan?source=bids-erate`, and read the first stored cards in the Preview feed or in `holler_signals`
+   (`source = 'bids-erate'`): title, summary ("E-Rate request (FCC Form 470) | contract may be signed from <date>"), link (USAC's own
+   `publicdata.usac.org` form page, no query string) and the card line. They must show no person, phone, email or street address. If
+   Preview uses the Production database, those rows stay hidden in Production while its switch is empty.
    (b) When the sample reads right: set `HOLLER_ERATE_ENABLED=1` in Production and redeploy (env changes reach new deployments only). The
    cards are a heads-up, not an Act now: the record has no bid deadline (its one date is the EARLIEST day a contract may be signed), and
    only providers registered with USAC (a SPIN) can be paid. Rollback: empty the variable and redeploy; stored `bids-erate` cards

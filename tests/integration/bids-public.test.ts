@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), client: nul
 vi.mock('next/cache', () => ({ cacheLife: h.cacheLife, cacheTag: h.cacheTag }));
 vi.mock('@/lib/seo/client', () => ({ publicClient: () => h.client }));
 
-import { BIDS_FLAG, bidClosed, excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
+import { BIDS_FLAG, ERATE_FLAG, bidClosed, excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { loadPlaceData } from '@/lib/seo/data';
 import { loadWeekData } from '@/lib/seo/week-data';
 import { loadTradeSignals } from '@/lib/seo/trade-data';
@@ -54,6 +54,7 @@ function selectFake(data: Record<string, unknown>[], opts: { ignoreNot?: boolean
         not: (c: string, op: string, v: string) => {
           nots.push([c, op, v]);
           if (!opts.ignoreNot && op === 'like') f.push((r) => !String(r[c]).startsWith(v.replace(/%$/, '')));
+          if (!opts.ignoreNot && op === 'eq') f.push((r) => r[c] !== v);
           return q;
         },
         order: () => q,
@@ -161,5 +162,51 @@ describe.each([{ ignoreNot: false }, { ignoreNot: true }])('public readers, data
     expect(check).not.toContain('CLOSED BID roof');
     const stats = await buildNationalStats(selectFake(rows(), { ignoreNot }) as unknown as SupabaseClient, NOW);
     expect(stats.sampleSize).toBe(2); // the open bid and the storm report
+  });
+});
+
+describe.each([{ ignoreNot: false }, { ignoreNot: true }])('public readers hold an E-Rate row (round 33), database ignores the filter: $ignoreNot', ({ ignoreNot }) => {
+  // Production has the bids switch on and the E-Rate switch empty: the stored E-Rate row must reach no public page, with the query filter or
+  // with the row guard alone, while the other bid and the storm report stay.
+  const withErate = () => [
+    ...rows(),
+    {
+      id: 9, source: 'bids-erate', kind: 'contract', title: 'ERATE school cabling', summary: 'E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01',
+      url: 'https://publicdata.usac.org/x.pdf', categories: ['roofing'], severity: 2, place_slug: 'atlanta-ga', city: 'Atlanta', state: 'GA', lat: 33.75, lon: -84.39,
+      data: { subtype: 'bid', contractFrom: '2026-12-01' }, subtype: 'bid', occurred_at: iso(-3 * HOUR), expires_at: iso(10 * 24 * HOUR),
+    },
+  ];
+  const titles = (d: unknown) => JSON.stringify(d);
+
+  it('bids on, E-Rate switch empty: no public reader shows it, the other bid stays', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    vi.stubEnv(ERATE_FLAG, '');
+    const fake = selectFake(withErate(), { ignoreNot });
+    h.client = fake;
+    const place = titles(await loadPlaceData('atlanta-ga'));
+    expect(place).not.toContain('ERATE school cabling');
+    expect(place).toContain('OPEN BID');
+    expect(fake.nots).toContainEqual(['source', 'eq', 'bids-erate']);
+    const week = titles(await loadWeekData('atlanta-ga', '2026-11-16'));
+    expect(week).not.toContain('ERATE school cabling');
+    expect(week).toContain('OPEN BID');
+    const trade = (await loadTradeSignals('roofing')).items.map((i) => i.title);
+    expect(trade).not.toContain('ERATE school cabling');
+    expect(trade).toContain('OPEN BID roof');
+    h.client = fakeSignalsDb(withErate(), { now: NOW });
+    const check = (await loadCheck(33.75, -84.39, 'GA', 'roofing')).items.map((i) => i.title);
+    expect(check).not.toContain('ERATE school cabling');
+    expect(check).toContain('OPEN BID roof');
+    const stats = await buildNationalStats(selectFake(withErate(), { ignoreNot }) as unknown as SupabaseClient, NOW);
+    expect(stats.sampleSize).toBe(2); // the open bid and the storm report, not the E-Rate row
+  });
+
+  it('both switches on: the E-Rate row shows', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    vi.stubEnv(ERATE_FLAG, '1');
+    h.client = selectFake(withErate(), { ignoreNot });
+    expect(titles(await loadPlaceData('atlanta-ga'))).toContain('ERATE school cabling');
+    const trade = (await loadTradeSignals('roofing')).items.map((i) => i.title);
+    expect(trade).toContain('ERATE school cabling');
   });
 });

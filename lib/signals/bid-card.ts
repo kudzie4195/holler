@@ -64,11 +64,11 @@ export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | nu
  * the bid deadline is the school's or library's to give, and that only providers registered with USAC (a SPIN) can be paid. It never says
  * "due", "deadline" as a fact of the record, or "days left".
  */
-export function erateCardLine(b: { buyer?: string | null; expiresAt?: string | null; contractFrom?: string | null }, lang: Lang = 'en'): string {
-  const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `${t(lang, 'bid.buyer', { buyer: b.buyer.trim() })} ` : '';
+export function erateCardLine(b: { expiresAt?: string | null; contractFrom?: string | null }, lang: Lang = 'en'): string {
+  // No buyer line: an E-Rate card never prints the institution's name (review 2), whatever a row holds.
   const day = typeof b.contractFrom === 'string' && /^\d{4}-\d{2}-\d{2}/.test(b.contractFrom) ? b.contractFrom.slice(0, 10) : typeof b.expiresAt === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(b.expiresAt) ? b.expiresAt.slice(0, 10) : null;
   const date = formatDueDate(day, lang);
-  return `${buyer}${date ? `${t(lang, 'bid.erate_from', { date })} ` : ''}${t(lang, 'bid.erate_spin')}`;
+  return `${date ? `${t(lang, 'bid.erate_from', { date })} ` : ''}${t(lang, 'bid.erate_spin')}`;
 }
 
 /** The one line under the label on a bid card: "Buyer: Water & Power. Due Dec 10, 2026, 19 days left." An E-Rate card gets erateCardLine. */

@@ -14,7 +14,7 @@ import type { CategoryId } from '@/lib/signals/categories';
  *   licence      Socrata licenseId PUBLIC_DOMAIN, attribution "Universal Service Administrative Company (usac.org)"; no licence link in the metadata.
  *   access       robots.txt (read 2026-11-25): User-agent *, Crawl-delay 1, Disallow only for /browse filters, /OData.svc/, /api/odata/, /login,
  *                /tiles/, /views/INLINE/rows.json clustering and /api/collocate. The SODA path /resource/jt8s-3q52.json is NOT disallowed. No
- *                token is needed (anonymous reads are throttled by IP, and the scan makes one request per run, twice a day). Holler sends no
+ *                token is needed (anonymous reads are throttled by IP, and the scan makes one request per run, twice a day, and up to four, a second apart, only when a page comes back full). Holler sends no
  *                app token to this host: an app token belongs to one portal and none is registered for USAC.
  *   the row       application_number, form_pdf {url}, funding_year, fcc_form_470_status (Certified | Canceled), allowable_contract_date and
  *                certified_date_time (floating timestamps), billed_entity_number / _name / _city / _state / _zip, applicant_type (School,
@@ -35,13 +35,12 @@ import type { CategoryId } from '@/lib/signals/categories';
  * PRIVACY. The contact columns hold named people, direct phone numbers and personal email addresses (a live row held a gmail address).
  * The narrative columns hold them too: a live row's "state or local restrictions" text named a procurement officer with a phone number and
  * an email. So the reader asks the portal for the ERATE_FIELDS columns only (a SoQL $select), copies only those keys out of every row it
- * receives (a second guard in case the portal ever ignores $select), and never reads a narrative column. Three of the allowed columns are
- * still free text typed by an applicant, so none is printed as written (review P1-3): the institution name is printed only when it ends in a
- * strong institution noun (School, Library, District ...), holds no role word, contact shape, punctuation or stray digit and does not open
- * with a personal name, else the card prints no name ("A school in <city>"); the city is printed only when it reads as a city name, else the
- * ZIP table's city is used; the link is rebuilt from host and path. applicant_type and funding_year are stored only as mapped values.
- * The street address is never selected. tests/signals/adapters/erate.test.ts proves it with rows that carry contact values in the columns
- * the reader requests, not only in the ones it never reads.
+ * receives (a second guard in case the portal ever ignores $select), and never reads a narrative column. Two more columns are free text an
+ * applicant typed: the institution's name (billed_entity_name) and its city (billed_entity_city). A name rule cannot be made safe ("Jane Doe
+ * Charter School" has the shape of "Thomas Edison Charter Academy"), so by owner decision neither column is requested, printed or stored. The card
+ * says "A school in <city>", the city always read from the ZIP table (lib/geo), and the form link carries the request. The link is rebuilt from
+ * host and path; applicant_type and funding_year are stored only as mapped values. The street address is never selected.
+ * tests/signals/adapters/erate.test.ts proves it with rows that carry contact values and attack names in the columns the portal has.
  */
 
 export const ERATE_ID = 'bids-erate';
@@ -60,7 +59,15 @@ export const ERATE_PAGE_SIZE = 5000;
 export const ERATE_MAX_PAGES = 4;
 /** The portal's robots.txt Crawl-delay: the gap between two pages of one run. */
 export const ERATE_PAGE_PAUSE_MS = 1000;
-/** The portal's own robots.txt asks for a 1 second gap between requests; the scan makes one request. */
+/** The timeout of one request. */
+export const ERATE_PAGE_TIMEOUT_MS = 20_000;
+/**
+ * The adapter's own time budget, under the scan's 40 s limit for one adapter (run.ts DEFAULT_ADAPTER_TIMEOUT_MS; a test keeps it lower). Paging
+ * stops when what is left of it is under one request's timeout, and the cancelled-form write is never sent once the budget is spent, because the
+ * scan has given up on the adapter by then.
+ */
+export const ERATE_TIME_BUDGET_MS = 38_000;
+/** The portal's own robots.txt asks for a 1 second gap between requests; the scan makes one request, and up to four when a page is full. */
 export const ERATE_ACCESS = {
   robotsUrl: `https://${ERATE_DOMAIN}/robots.txt`,
   robotsCheckedOn: '2026-11-25',
@@ -82,9 +89,7 @@ export const ERATE_FIELDS = [
   'allowable_contract_date',
   'certified_date_time',
   'billed_entity_number',
-  'billed_entity_name',
   'applicant_type',
-  'billed_entity_city',
   'billed_entity_state',
   'billed_entity_zip',
   'service_category',
@@ -102,6 +107,8 @@ export type ErateField = (typeof ERATE_FIELDS)[number];
 export const ERATE_NEVER_READ: readonly string[] = [
   'billed_entity_email', 'billed_entity_phone', 'billed_entity_phone_ext', 'ben_address_1', 'ben_address_2', 'ben_fcc_registration_number',
   'website_url',
+  // Typed by the applicant and never printed or stored (review 2, owner decision): the card says "A school in <city>" with the city from the ZIP table.
+  'billed_entity_name', 'billed_entity_city',
   'contact_name', 'contact_address1', 'contact_address2', 'contact_city', 'contact_state', 'contact_zip', 'contact_zip_ext', 'contact_phone',
   'contact_phone_ext', 'contact_email',
   'technical_contact_name', 'technical_contact_title', 'technical_contact_phone', 'technical_contact_phone_ext', 'technical_contact_email',
@@ -202,7 +209,7 @@ export function erateTitle(who: ErateWho, place: string, work: ErateWork): strin
   return `A ${ERATE_WHO_EN[who]} in ${place} is asking for bids on ${ERATE_WORK_EN[work]}`;
 }
 
-/** The summary parts Holler writes itself (summary-i18n.ts says them in Spanish). The buyer's name, when shown, is the other part. */
+/** The summary parts Holler writes itself (summary-i18n.ts says them in Spanish). */
 export const ERATE_SUMMARY_KIND = 'E-Rate request (FCC Form 470)';
 /** The allowable contract date is the earliest day a contract may be signed; it is not a deadline, so the summary never says "due" or "until". */
 export function erateFromPart(day: string): string {

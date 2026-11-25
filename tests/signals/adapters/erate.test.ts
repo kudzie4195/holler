@@ -14,8 +14,11 @@ import fixture from '../__data__/erate-470-rows.json';
 import {
   ERATE_FIELDS,
   ERATE_NEVER_READ,
+  ERATE_PAGE_PAUSE_MS,
   ERATE_PAGE_SIZE,
+  ERATE_PAGE_TIMEOUT_MS,
   ERATE_ROUTES,
+  ERATE_TIME_BUDGET_MS,
   erateTitle,
   routeFor,
   whoFor,
@@ -23,17 +26,16 @@ import {
 import {
   adapters,
   buildErateQuery,
-  cityName,
   closesAt,
   formLink,
-  institutionName,
+  MIN_DAYS_AHEAD,
   parseErate,
   pickAllowed,
   retireCancelled,
   tidyPlace,
 } from '@/lib/signals/adapters/erate';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
-import { missingEnvFor } from '@/lib/signals/run';
+import { DEFAULT_ADAPTER_TIMEOUT_MS, missingEnvFor } from '@/lib/signals/run';
 import { BIDS_FLAG, ERATE_FLAG, bidClosed, bidHidden, dropHiddenBids, erateHidden, excludeBidsInQuery, isBidSignal, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { localizeTitle } from '@/lib/signals/title-i18n';
@@ -62,46 +64,64 @@ afterEach(() => {
 
 /**
  * A stand-in for the portal that reads the SAME query string the adapter sends (decoded, so +, %27 and %24 are exercised) and answers like
- * SODA 2: it filters on the clauses the adapter uses (col in(...), col>='...'), orders, pages ($limit, $offset) and projects $select. It answers
- * 400 for anything it does not understand or any column the dataset does not have, so a malformed query fails a test. It is not the portal:
- * whether the live portal accepts the combined query is stated in the PR, not proved here.
+ * SODA 2 for ONE documented shape, and answers 400 for anything else:
+ *   $select  a non-empty list of the columns in ERATE_FIELDS (nothing else; a name, city, contact or narrative column is refused)
+ *   $where   exactly four clauses, each once: fcc_form_470_status in('Certified','Canceled'), function in('Cabling'),
+ *            service_type in('Internal Connections'), allowable_contract_date>='YYYY-MM-DDT00:00:00'
+ *   $order   allowable_contract_date, application_number and :id, each optionally DESC
+ *   $limit   1 to 5000 (required)   $offset  a multiple of the limit   no other parameter
+ * It is not the portal: whether the live portal accepts the combined query is stated in the PR, not proved here.
  */
 function fakePortal(rows: Array<Record<string, unknown>>, seen: URLSearchParams[] = []): typeof fetch {
-  const columns = new Set<string>([...ERATE_FIELDS, ...ERATE_NEVER_READ]);
+  const selectable = new Set<string>(ERATE_FIELDS);
+  const LITERALS: Record<string, string[]> = {
+    fcc_form_470_status: ['Certified', 'Canceled'],
+    function: ['Cabling'],
+    service_type: ['Internal Connections'],
+  };
   return (async (input: RequestInfo | URL) => {
     const u = new URL(String(input));
     if (u.origin + u.pathname !== 'https://opendata.usac.org/resource/jt8s-3q52.json') return new Response('not found', { status: 404 });
     const q = u.searchParams;
     seen.push(q);
     const bad = (why: string) => new Response(JSON.stringify({ error: true, message: why }), { status: 400 });
-    const select = (q.get('$select') ?? '').split(',').filter(Boolean);
-    if (select.length === 0 || select.some((c) => !columns.has(c))) return bad('select');
-    let out = rows.slice();
-    for (const clause of (q.get('$where') ?? '').split(' AND ')) {
+    for (const k of q.keys()) if (!['$select', '$where', '$order', '$limit', '$offset'].includes(k)) return bad(`parameter ${k}`);
+    const select = (q.get('$select') ?? '').split(',');
+    if (select.length === 0 || select.some((c) => !selectable.has(c))) return bad('select');
+    let out = rows.map((r, i) => ({ r, i }));
+    const clauses = (q.get('$where') ?? '').split(' AND ');
+    const seenCols = new Set<string>();
+    for (const clause of clauses) {
       let m: RegExpExecArray | null;
-      if ((m = /^(\w+) in\((.+)\)$/.exec(clause))) {
-        if (!columns.has(m[1])) return bad('column');
-        const set = new Set([...m[2].matchAll(/'((?:[^']|'')*)'/g)].map((x) => x[1].replace(/''/g, "'")));
-        out = out.filter((r) => set.has(String(r[m![1]])));
-      } else if ((m = /^(\w+)>='([^']+)'$/.exec(clause))) {
-        if (!columns.has(m[1])) return bad('column');
-        out = out.filter((r) => typeof r[m![1]] === 'string' && (r[m![1]] as string) >= m![2]);
+      if ((m = /^(fcc_form_470_status|function|service_type) in\(('[^']+'(?:,'[^']+')*)\)$/.exec(clause))) {
+        const col = m[1];
+        const vals = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+        if (seenCols.has(col) || vals.some((v) => !LITERALS[col].includes(v))) return bad(`where: ${clause}`);
+        seenCols.add(col);
+        out = out.filter((x) => vals.includes(String(x.r[col])));
+      } else if ((m = /^allowable_contract_date>='(\d{4}-\d{2}-\d{2})T00:00:00'$/.exec(clause))) {
+        if (seenCols.has('allowable_contract_date') || Number.isNaN(Date.parse(m[1]))) return bad(`where: ${clause}`);
+        seenCols.add('allowable_contract_date');
+        out = out.filter((x) => typeof x.r.allowable_contract_date === 'string' && (x.r.allowable_contract_date as string) >= `${m![1]}T00:00:00`);
       } else return bad(`where: ${clause}`);
     }
+    if (seenCols.size !== 4) return bad('where: a clause is missing');
     const order = (q.get('$order') ?? '').split(',').filter(Boolean).map((x) => x.trim().split(/\s+/));
-    for (const [col] of order) if (!columns.has(col)) return bad('order');
+    if (order.length === 0 || order.some(([c, d]) => !['allowable_contract_date', 'application_number', ':id'].includes(c) || (d !== undefined && d.toUpperCase() !== 'DESC' && d.toUpperCase() !== 'ASC'))) return bad('order');
+    const val = (x: { r: Record<string, unknown>; i: number }, col: string) => (col === ':id' ? String(x.i).padStart(9, '0') : String(x.r[col] ?? ''));
     out.sort((a, b) => {
       for (const [col, dir] of order) {
-        const x = String(a[col] ?? '');
-        const y = String(b[col] ?? '');
+        const x = val(a, col);
+        const y = val(b, col);
         if (x !== y) return (x < y ? -1 : 1) * (dir?.toUpperCase() === 'DESC' ? -1 : 1);
       }
       return 0;
     });
+    const limit = Number(q.get('$limit'));
     const offset = Number(q.get('$offset') ?? 0);
-    const limit = Number(q.get('$limit') ?? 1000);
-    out = out.slice(offset, offset + limit).map((r) => Object.fromEntries(select.filter((c) => c in r).map((c) => [c, r[c]])));
-    return new Response(JSON.stringify(out), { status: 200 });
+    if (!Number.isInteger(limit) || limit < 1 || limit > 5000 || !Number.isInteger(offset) || offset < 0 || offset % limit !== 0) return bad('paging');
+    const page = out.slice(offset, offset + limit).map(({ r }) => Object.fromEntries(select.filter((c) => c in r).map((c) => [c, r[c]])));
+    return new Response(JSON.stringify(page), { status: 200 });
   }) as unknown as typeof fetch;
 }
 
@@ -125,7 +145,7 @@ describe('field mapping on real rows', () => {
       source: 'bids-erate',
       kind: 'contract',
       title: 'A school in Astoria is asking for bids on network cabling',
-      summary: 'St Joseph Catholic Academy | E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01',
+      summary: 'E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01',
       url: 'https://publicdata.usac.org/EPC/Prd/Form470/270003493/11475/22877131-USAC_FCC_FORM_470_APPLICATION_270003493_CERTIFIED.pdf',
       city: 'Astoria',
       state: 'NY',
@@ -140,7 +160,6 @@ describe('field mapping on real rows', () => {
       subtype: 'bid',
       dataset: 'jt8s-3q52',
       solicitationId: '270003493',
-      buyer: 'St Joseph Catholic Academy',
       bidType: 'E-Rate Form 470',
       who: 'school',
       work: 'cabling',
@@ -166,11 +185,19 @@ describe('field mapping on real rows', () => {
     expect(rep.items.find((x) => x.externalId === '270001007')).toBeUndefined();
   });
 
-  it('prints a consortium and a district without a usable name', () => {
+  it('never stores the institution name or the applicant\'s city: the title city is the ZIP table\'s and no buyer key exists', () => {
+    for (const i of rep.items) {
+      expect(i.data).not.toHaveProperty('buyer');
+      expect(i.city).toBe(lookupZip(i.zip!)!.city);
+      expect(i.title).toContain(` in ${i.city} is asking`);
+    }
+    expect(JSON.stringify(rep)).not.toMatch(/Catholic|Academy|BOCES|Prince of Peace|Southern Westchester/i);
+  });
+
+  it('prints a consortium and a district by what they are', () => {
     expect(rep.items.find((x) => x.externalId === '270004329')!.title).toBe('A group of schools and libraries in Harrison is asking for bids on network cabling');
     const chi = rep.items.find((x) => x.externalId === '270002974')!;
     expect(chi.summary).toBe('E-Rate request (FCC Form 470) | contract may be signed from 2026-12-14');
-    expect((chi.data as { buyer: unknown }).buyer).toBeNull();
   });
 
   it("links to the form on USAC's own host, else to the dataset page", () => {
@@ -227,27 +254,33 @@ describe('the allowable contract date is the earliest contract day, not a deadli
   it('never says due, deadline-as-fact, days left or closes within 24 hours, on any day up to the date', () => {
     for (const now of ['2026-11-25T18:00:00Z', '2026-11-30T12:00:00Z', '2026-11-30T23:30:00Z']) {
       for (const lang of ['en', 'es'] as const) {
-        const line = bidCardLine({ buyer: 'X School', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, new Date(now), lang);
+        const line = bidCardLine({ dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, new Date(now), lang);
         expect(line).not.toMatch(/\bDue\b|vence|days? left|faltan?|closes within|cierra en menos|Bids accepted|Se aceptan ofertas/i);
         expect(line).toContain(lang === 'en' ? 'ask the school or library for its bid deadline' : 'pregunte a la escuela o biblioteca por su fecha límite para ofertas');
       }
     }
   });
 
-  it('drops a request whose date is today or past, and keeps one that starts tomorrow', () => {
+  it('drops a request whose date is today, past, tomorrow or less than two days away, and keeps one two or more days out (review 2 finding 6)', () => {
     const withDate = (d: string) => byApp('270003493').map((r) => ({ ...r, allowable_contract_date: `${d}T00:00:00.000` }));
     expect(one(withDate('2026-11-24')).items).toEqual([]);
     expect(one(withDate('2026-11-25')).items).toEqual([]); // today
-    expect(one(withDate('2026-11-26')).items).toHaveLength(1); // tomorrow, 6 hours from NOW
-    // the same on the edge: 00:00:00Z on the date itself is already today
-    expect(one(withDate('2026-11-26'), new Date('2026-11-26T00:00:00Z')).items).toEqual([]);
-    expect(one(withDate('2026-11-26'), new Date('2026-11-25T23:59:59Z')).items).toHaveLength(1);
+    expect(one(withDate('2026-11-26')).items).toEqual([]); // tomorrow, 6 hours from NOW
+    expect(one(withDate('2026-11-27')).items).toEqual([]); // 30 hours: under two days
+    expect(one(withDate('2026-11-28')).items).toHaveLength(1); // 54 hours
+    // the edge is 48 hours exactly: 2026-11-28T00:00Z is kept from 2026-11-26T00:00Z and dropped a second later
+    expect(one(withDate('2026-11-28'), new Date('2026-11-26T00:00:00Z')).items).toHaveLength(1);
+    expect(one(withDate('2026-11-28'), new Date('2026-11-26T00:00:01Z')).items).toEqual([]);
+    expect(MIN_DAYS_AHEAD).toBe(2);
+    expect(one(withDate('2026-11-27')).closed).toBe(1);
   });
 
   it('a stored row closes at the start of its date', () => {
-    expect(open('2026-11-30T23:59:00Z')).toContain('270003493');
-    expect(open('2026-12-01T00:00:00Z')).not.toContain('270003493');
-    expect(open('2026-12-14T00:00:00Z')).not.toContain('270002974');
+    // with a clock inside the window the card is ingested; the stored row then closes at the start of its date (bidClosed below)
+    expect(open('2026-11-29T00:00:00Z')).toContain('270003493');
+    expect(open('2026-11-30T00:00:01Z')).not.toContain('270003493');
+    expect(open('2026-12-12T00:00:00Z')).toContain('270002974');
+    expect(open('2026-12-12T00:00:01Z')).not.toContain('270002974');
     expect(bidClosed({ source: ny.source, subtype: 'bid', expires_at: ny.expiresAt }, Date.parse('2026-12-01T00:00:00Z'))).toBe(true);
     expect(bidClosed({ source: ny.source, subtype: 'bid', expires_at: ny.expiresAt }, Date.parse('2026-11-30T23:59:59Z'))).toBe(false);
   });
@@ -269,7 +302,7 @@ describe('the allowable contract date is the earliest contract day, not a deadli
     expect(q.get('$where')).toContain("allowable_contract_date>='2026-11-25T00:00:00'");
     expect(q.get('$where')).toContain("fcc_form_470_status in('Certified','Canceled')");
     expect(q.get('$where')).toContain("service_type in('Internal Connections')");
-    expect(q.get('$order')).toBe('allowable_contract_date DESC,application_number DESC');
+    expect(q.get('$order')).toBe('allowable_contract_date DESC,application_number DESC,:id');
     expect(q.get('$limit')).toBe(String(ERATE_PAGE_SIZE));
     expect(q.has('$offset')).toBe(false);
     expect(buildErateQuery(NOW, 5000).get('$offset')).toBe('5000');
@@ -417,64 +450,45 @@ describe('contact fields and free text never survive ingest (review P1-3)', () =
     for (const f of ERATE_FIELDS) expect(ERATE_NEVER_READ).not.toContain(f);
   });
 
-  // The review's attack names. Each is typed into billed_entity_name, a column the reader REQUESTS, and goes through the portal stand-in
-  // (which returns only the selected columns) and the real adapter, so what survives is what a live run would store.
+  // The review's attack names and cities. By owner decision (review 2) neither column is requested, printed or stored, so these prove it three
+  // ways: the query does not select them, the portal stand-in (which refuses any other column) returns none, and a portal that returned them
+  // anyway (parseErate called directly) still leaves them out of every stored field.
   const ATTACK_NAMES = [
-    'Maria Lopez Home Day Care', 'Jane Doe Family Day Care', 'Jane Doe Learning Center', 'John Smith Education Consultant', 'J Smith Learning', 'Saoirse Day',
-    'Nguyen Day', 'Jane Public', 'Lincoln High School attn John Smith', 'Lincoln High School c/o John Smith', 'Lincoln High School care of John Smith',
-    'Lincoln Elementary School John Smith Principal', 'Lincoln Public Library, Jane Doe Director', 'Astoria Charter School Attn: Maria Gonzalez Tech Coord',
-    'Lincoln School jsmith at gmail dot com', 'Lincoln School jsmith@gmail.com', 'Lincoln School 404-555-0142', 'Lincoln School 212 555 0199',
-    'Lincoln Academy 4045550142', 'Lincoln School (Jane Doe)', 'Lincoln School: Jane Doe', 'Lincoln School / Jane Doe', 'Lincoln School Contact Jane Doe',
-    'Maria Lopez School', 'Jane Doe School', 'Maria Lopez Home School', 'Pat Quillfeather 404-555-0142', 'Lincoln School Ext 123',
+    'Maria Lopez Home Day Care', 'Jane Doe Learning Center', 'Lincoln High School attn John Smith', 'Lincoln Public Library, Jane Doe Director',
+    'Lincoln School jsmith at gmail dot com', 'Lincoln School 404-555-0142', 'Jane Doe School', 'Jane Doe Charter School', 'Saoirse Okonjo School',
+    'Mrs Jane Doe School', 'John Smith Lincoln High School', 'Jane Doe Plano ISD', 'Jane Doe School District', 'Jsmith At Aol Com Lincoln School',
+    'Prince of Peace Catholic School', 'Dallas ISD',
   ];
+  const ATTACK_CITIES = ['Astoria call Jane Doe 212-555-0199', 'jane.doe@gmail.com', 'Saoirse Okonjo', 'Astoria Jane Doe', 'x'.repeat(60), 'Astoria (call Pat)'];
+  const PERSON_BITS = /Jane|Maria|Lopez|John|Smith|jsmith|Doe\b|Saoirse|Okonjo|Pat\b|Quillfeather|404|555|gmail|aol|Catholic|Dallas ISD|Peace|x{10}/;
 
-  it.each(ATTACK_NAMES)('leaves %s off the card and the card still stands', async (name) => {
-    expect(institutionName(name)).toBeNull();
-    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_name: name }));
-    const logs: string[] = [];
-    const out = await adapters[0].fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' }, fakePortal(rows), logs));
-    expect(out).toHaveLength(1);
-    expect(out[0].summary).toBe('E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01');
-    expect((out[0].data as { buyer: unknown }).buyer).toBeNull();
-    const blob = JSON.stringify(out);
-    for (const part of name.split(/\s+/).filter((w) => /^(?:Jane|Maria|John|Doe|Lopez|Smith|jsmith|Gonzalez|Quillfeather|Pat|Saoirse|Nguyen|404-555-0142|4045550142|555)$/.test(w))) expect(blob).not.toContain(part);
+  it('the reader asks for neither the name nor the city column', () => {
+    const asked = (buildErateQuery(NOW).get('$select') ?? '').split(',');
+    expect(asked).not.toContain('billed_entity_name');
+    expect(asked).not.toContain('billed_entity_city');
+    expect(ERATE_NEVER_READ).toContain('billed_entity_name');
+    expect(ERATE_NEVER_READ).toContain('billed_entity_city');
   });
 
-  it('prints real institution names, including person-named schools and public bodies', () => {
-    expect(institutionName('ST JOSEPH CATHOLIC ACADEMY')).toBe('St Joseph Catholic Academy');
-    expect(institutionName('SOUTHERN WESTCHESTER BOCES')).toBe('Southern Westchester BOCES');
-    expect(institutionName('Prince of Peace Catholic School')).toBe('Prince of Peace Catholic School');
-    expect(institutionName('Evanston Township High School District 202')).toBe('Evanston Township High School District 202');
-    expect(institutionName('Dallas ISD')).toBe('Dallas ISD');
-    expect(institutionName('Mount Vernon Public Library')).toBe('Mount Vernon Public Library');
-    expect(institutionName('Abraham Lincoln High School')).toBe('Abraham Lincoln High School');
-    expect(institutionName("St. John's Lutheran School")).toBe("St. John's Lutheran School");
-    expect(institutionName('')).toBeNull();
-    expect(institutionName('ACME WIDGETS INC')).toBeNull();
-  });
-
-  const ATTACK_CITIES = [
-    'Astoria call Jane Doe 212-555-0199', 'jane.doe@gmail.com', 'Astoria Jane Doe', 'x'.repeat(60), 'Astoria (call Pat)', 'Astoria 11103', 'Astoria, attn Pat Quillfeather',
-    'Astoria https://x.example',
-  ];
-  it.each(ATTACK_CITIES)('uses the ZIP table city when the portal city is %j', async (city) => {
-    expect(cityName(city, 'Astoria')).toBe('Astoria');
-    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_city: city }));
+  it.each(ATTACK_NAMES.flatMap((n) => ATTACK_CITIES.slice(0, 3).map((c) => [n, c] as const)))('prints and stores neither %j nor the city %j', async (name, city) => {
+    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_name: name, billed_entity_city: city }));
     const out = await adapters[0].fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' }, fakePortal(rows)));
     expect(out).toHaveLength(1);
     expect(out[0].title).toBe('A school in Astoria is asking for bids on network cabling');
+    expect(out[0].summary).toBe('E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01');
     expect(out[0].city).toBe('Astoria');
-    expect(JSON.stringify(out)).not.toMatch(/Jane|Pat|Quillfeather|@|555|x{10}|example/);
+    expect(JSON.stringify(out)).not.toMatch(PERSON_BITS);
+    // a portal that ignored $select and sent the columns anyway
+    const direct = one(rows);
+    expect(direct.items).toHaveLength(1);
+    expect(JSON.stringify(direct)).not.toMatch(PERSON_BITS);
+    expect(direct.items[0].title).toBe('A school in Astoria is asking for bids on network cabling');
   });
 
-  it('keeps a plain city name as the portal writes it', () => {
-    expect(cityName('MOUNT VERNON', 'Z')).toBe('Mount Vernon');
-    expect(cityName("O'FALLON", 'Z')).toBe("O'Fallon");
-    expect(cityName('Fort Worth', 'Z')).toBe('Fort Worth');
-    // a city that reads like a personal name (Winston-Salem: given name and surname) is not printed from the portal; the ZIP table's city stands in
-    expect(cityName('WINSTON-SALEM', 'Winston-Salem')).toBe('Winston-Salem');
-    expect(cityName('Astoria\nNew', 'Z')).toBe('Astoria New');
-    expect(cityName(undefined, 'ASTORIA')).toBe('Astoria');
+  it.each(ATTACK_CITIES)('uses the ZIP table city whatever the portal city says: %j', (city) => {
+    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_city: city }));
+    expect(one(rows).items[0].title).toBe('A school in Astoria is asking for bids on network cabling');
+    expect(one(rows).items[0].city).toBe('Astoria');
   });
 
   it('stores applicant_type and funding_year only as mapped values', async () => {
@@ -502,8 +516,8 @@ describe('contact fields and free text never survive ingest (review P1-3)', () =
     expect(JSON.stringify(rep)).not.toMatch(/gmail|555|tel=/);
   });
 
-  it('the fixture itself holds no contact column', () => {
-    for (const r of ROWS) for (const k of Object.keys(r)) expect(ERATE_NEVER_READ).not.toContain(k);
+  it('the fixture itself holds no contact column (it keeps the portal\'s own name and city values, which the reader never requests)', () => {
+    for (const r of ROWS) for (const k of Object.keys(r)) if (k !== 'billed_entity_name' && k !== 'billed_entity_city') expect(ERATE_NEVER_READ).not.toContain(k);
     expect(JSON.stringify(ROWS)).not.toMatch(/@/);
   });
 });
@@ -530,8 +544,9 @@ describe('card copy in English and Spanish', () => {
   });
 
   it('the card line gives the earliest contract day, sends the member to the school for the bid deadline, and says who can be paid', () => {
+    // a stored row that somehow held a buyer still prints none
     expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, NOW, 'en')).toBe(
-      'Buyer: St Joseph Catholic Academy. A contract may be signed from Dec 1, 2026; ask the school or library for its bid deadline. Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
+      'A contract may be signed from Dec 1, 2026; ask the school or library for its bid deadline. Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
     );
     expect(bidCardLine({ dueDate: null, expiresAt: chi.expiresAt, source: 'bids-erate' }, NOW, 'en')).toBe(
       'A contract may be signed from Dec 14, 2026; ask the school or library for its bid deadline. Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
@@ -546,9 +561,9 @@ describe('card copy in English and Spanish', () => {
     expect(localizeTitle(rep.items.find((x) => x.externalId === '270004329')!.title, 'es', 'bids-erate')).toBe(
       'Un grupo de escuelas y bibliotecas en Harrison pide ofertas para cableado de red',
     );
-    expect(localizeSummary(ny.summary, 'es', ny.source)).toBe('St Joseph Catholic Academy | Solicitud E-Rate (formulario 470 de la FCC) | se puede firmar un contrato a partir del 1 dic 2026');
+    expect(localizeSummary(ny.summary, 'es', ny.source)).toBe('Solicitud E-Rate (formulario 470 de la FCC) | se puede firmar un contrato a partir del 1 dic 2026');
     expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, NOW, 'es')).toBe(
-      'Comprador: St Joseph Catholic Academy. Se puede firmar un contrato a partir del 1 dic 2026; pregunte a la escuela o biblioteca por su fecha límite para ofertas. Solo se paga por trabajo de E-Rate a proveedores registrados en USAC (con un SPIN).',
+      'Se puede firmar un contrato a partir del 1 dic 2026; pregunte a la escuela o biblioteca por su fecha límite para ofertas. Solo se paga por trabajo de E-Rate a proveedores registrados en USAC (con un SPIN).',
     );
     const card = cardBriefLang(brief, 'es');
     expect(card.why).toBe('Una escuela o biblioteca pide ofertas para cableado; aún no se ha adjudicado.');
@@ -571,7 +586,7 @@ describe('card copy in English and Spanish', () => {
     for (const i of rep.items) {
       for (const lang of ['en', 'es'] as const) {
         texts.push(localizeTitle(i.title, lang, i.source), localizeSummary(i.summary, lang, i.source) ?? '');
-        texts.push(bidCardLine({ buyer: (i.data as { buyer: string | null }).buyer, expiresAt: i.expiresAt, source: i.source }, NOW, lang));
+        texts.push(bidCardLine({ expiresAt: i.expiresAt, source: i.source }, NOW, lang));
         for (const label of ['coming_soon', 'act_now'] as const) {
           const c = cardBriefLang({ source: i.source, subtype: 'bid', title: i.title, summary: i.summary, label, trade: 'electrical', url: i.url, occurredAt: i.occurredAt }, lang);
           texts.push(c.why, c.next, c.uncertain, c.source.label, c.source.linkText);
@@ -706,7 +721,7 @@ describe('cancelled forms and the row limit (review P2-6, P2-7)', () => {
     expect(t[0].expires_at).toBe(NOW.toISOString());
     expect(t[1].expires_at).toBe('2026-12-21T00:00:00.000Z');
     expect(t[2].expires_at).toBe('2026-12-01T00:00:00.000Z');
-    expect(logs.join('\n')).toContain('closed stored cards for 1 cancelled form');
+    expect(logs.join('\n')).toContain('asked to close stored cards for 1 cancelled form');
     // and the stored row is now hidden everywhere the bid rules are read
     expect(bidClosed({ source: 'bids-erate', subtype: 'bid', expires_at: t[0].expires_at }, NOW.getTime())).toBe(true);
     expect(bidHidden({ source: 'bids-erate', subtype: 'bid', expires_at: t[0].expires_at }, true, NOW.getTime(), true)).toBe(true);
@@ -729,34 +744,107 @@ describe('cancelled forms and the row limit (review P2-6, P2-7)', () => {
     expect(l2.join(' ')).toContain('could not close cancelled forms');
   });
 
-  it('a full page asks for the next page, a second apart, newest date first, and stops at a short page', async () => {
+  const filler = (n: number, from = 0) =>
+    Array.from({ length: n }, (_, i) => ({ ...byApp('270003493')[0], application_number: String(300000000 + from + i), allowable_contract_date: '2026-12-01T00:00:00.000' }));
+
+  it('a full page asks for the next page, newest date first, exactly a second apart (the portal Crawl-delay), and stops at a short page', async () => {
     vi.useFakeTimers();
-    const filler = (n: number) =>
-      Array.from({ length: n }, (_, i) => ({ ...byApp('270003493')[0], application_number: String(300000000 + i), allowable_contract_date: '2026-12-01T00:00:00.000' }));
+    vi.setSystemTime(NOW);
     const seen: URLSearchParams[] = [];
+    const stamps: number[] = [];
+    const portal = fakePortal([...filler(ERATE_PAGE_SIZE), ...byApp('270005737')], seen);
+    const f = (async (url: string, init: RequestInit) => (stamps.push(Date.now()), portal(url, init))) as unknown as typeof fetch;
     const logs: string[] = [];
-    // 5000 filler rows + 3 real ones: page 1 is full, page 2 holds the rest
-    const rows = [...filler(ERATE_PAGE_SIZE), ...byApp('270005737')];
-    const p = adapter.fetch(ctx(on, fakePortal(rows, seen), logs));
+    const p = adapter.fetch(ctx(on, f, logs));
     await vi.runAllTimersAsync();
     const out = await p;
     expect(seen.map((q) => q.get('$offset'))).toEqual([null, '5000']);
-    expect(seen.every((q) => q.get('$order') === 'allowable_contract_date DESC,application_number DESC')).toBe(true);
+    expect(seen.every((q) => q.get('$order') === 'allowable_contract_date DESC,application_number DESC,:id')).toBe(true);
     expect(out.length).toBe(ERATE_PAGE_SIZE + 1);
+    expect(stamps).toHaveLength(2);
+    expect(stamps[1] - stamps[0]).toBe(ERATE_PAGE_PAUSE_MS);
+    expect(ERATE_PAGE_PAUSE_MS).toBeGreaterThanOrEqual(1000); // robots.txt Crawl-delay: 1
     expect(logs.join('\n')).toContain('in 2 pages');
     expect(logs.join('\n')).not.toContain('WARNING');
   });
 
-  it('logs a warning when the page limit is reached with rows still to read', async () => {
+  it('logs a warning when the page limit is reached with rows still to read, and keeps every gap at the pause', async () => {
     vi.useFakeTimers();
-    const rows = Array.from({ length: ERATE_PAGE_SIZE * 4 + 10 }, (_, i) => ({ ...byApp('270003493')[0], application_number: String(300000000 + i) }));
+    vi.setSystemTime(NOW);
     const seen: URLSearchParams[] = [];
+    const stamps: number[] = [];
+    const portal = fakePortal(filler(ERATE_PAGE_SIZE * 4 + 10), seen);
+    const f = (async (url: string, init: RequestInit) => (stamps.push(Date.now()), portal(url, init))) as unknown as typeof fetch;
     const logs: string[] = [];
-    const p = adapter.fetch(ctx(on, fakePortal(rows, seen), logs));
+    const p = adapter.fetch(ctx(on, f, logs));
     await vi.runAllTimersAsync();
     await p;
     expect(seen).toHaveLength(4);
+    expect(stamps.slice(1).map((t, i) => t - stamps[i])).toEqual([ERATE_PAGE_PAUSE_MS, ERATE_PAGE_PAUSE_MS, ERATE_PAGE_PAUSE_MS]);
     expect(logs.join('\n')).toMatch(/WARNING page limit reached \(4 pages of 5000 rows\)/);
+  });
+
+  it('stops paging when what is left of the time budget is under one request timeout, and says so', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const seen: URLSearchParams[] = [];
+    const portal = fakePortal(filler(ERATE_PAGE_SIZE * 4), seen);
+    // every page takes 15 s: page 1 ends at 15 s, page 2 (after the pause) at 31 s; 38 - 31 - 1 = 6 s is under the 20 s timeout, so no page 3
+    const slow = (async (url: string, init: RequestInit) => {
+      const r = await portal(url, init);
+      vi.setSystemTime(Date.now() + 15_000);
+      return r;
+    }) as unknown as typeof fetch;
+    const logs: string[] = [];
+    const p = adapter.fetch(ctx(on, slow, logs));
+    await vi.runAllTimersAsync();
+    await p;
+    expect(seen).toHaveLength(2);
+    expect(logs.join('\n')).toMatch(/WARNING time budget reached after 2 pages/);
+    expect(ERATE_TIME_BUDGET_MS).toBeLessThan(DEFAULT_ADAPTER_TIMEOUT_MS);
+    expect(ERATE_PAGE_TIMEOUT_MS + ERATE_PAGE_PAUSE_MS).toBeLessThan(ERATE_TIME_BUDGET_MS);
+  });
+
+  it('never sends the cancelled-form write once the budget is spent (the scan has given up on the adapter)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const db = new FakeDb({ holler_signals: [{ id: 1, source: 'bids-erate', external_id: '270003493', expires_at: '2026-12-01T00:00:00.000Z' }] });
+    const portal = fakePortal(cancelledRows('270003493'));
+    const late = (async (url: string, init: RequestInit) => {
+      const r = await portal(url, init);
+      vi.setSystemTime(Date.now() + ERATE_TIME_BUDGET_MS + 1000);
+      return r;
+    }) as unknown as typeof fetch;
+    const logs: string[] = [];
+    await adapter.fetch(ctx(on, late, logs, { db: db as unknown as Db }));
+    expect(db.calls).toEqual([]);
+    expect(db.tables.holler_signals[0].expires_at).toBe('2026-12-01T00:00:00.000Z');
+    expect(logs.join('\n')).toContain('time budget spent, cancelled forms left for the next run');
+    // inside the budget the same run does write
+    const db2 = new FakeDb({ holler_signals: [{ id: 1, source: 'bids-erate', external_id: '270003493', expires_at: '2026-12-01T00:00:00.000Z' }] });
+    await adapter.fetch(ctx(on, portal, [], { db: db2 as unknown as Db }));
+    expect(db2.calls).toContain('holler_signals.update');
+  });
+
+  it('the stand-in refuses a query outside the documented shape (name or city column, a missing clause, another literal, an unknown parameter, a bad offset)', async () => {
+    const portal = fakePortal(ROWS);
+    const ok = buildErateQuery(NOW);
+    const call = async (mut: (q: URLSearchParams) => void) => {
+      const q = new URLSearchParams(ok);
+      mut(q);
+      return (await portal(`https://opendata.usac.org/resource/jt8s-3q52.json?${q.toString()}`)).status;
+    };
+    expect(await call(() => undefined)).toBe(200);
+    expect(await call((q) => q.set('$select', `${q.get('$select')},billed_entity_name`))).toBe(400);
+    expect(await call((q) => q.set('$select', `${q.get('$select')},billed_entity_city`))).toBe(400);
+    expect(await call((q) => q.set('$select', `${q.get('$select')},contact_email`))).toBe(400);
+    expect(await call((q) => q.set('$where', (q.get('$where') ?? '').replace("'Internal Connections'", "'Internal Connections','Basic Maintenance of Internal Connections'")))).toBe(400);
+    expect(await call((q) => q.set('$where', (q.get('$where') ?? '').replace(" AND function in('Cabling')", '')))).toBe(400);
+    expect(await call((q) => q.set('$order', 'allowable_contract_date DESC,billed_entity_name'))).toBe(400);
+    expect(await call((q) => q.set('$limit', '5001'))).toBe(400);
+    expect(await call((q) => q.set('$offset', '123'))).toBe(400);
+    expect(await call((q) => q.set('$group', 'application_number'))).toBe(400);
+    expect(await call((q) => q.set('extra', '1'))).toBe(400);
   });
 });
 
