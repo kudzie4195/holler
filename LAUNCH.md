@@ -94,8 +94,10 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    NEEDS KUDZI (round 33 business licences): `HOLLER_BUSINESS_TAG_FIX_ENABLED` stays empty at the deploy. Off, the scan tags every new-business
    licence with the same fixed trade set as before. Set it to `1` (Production, after reading gates/r33/r33-la-business/REPORT.md) to tag a
    licence only by its own type (a shop, a restaurant, a parking lot or a storage facility; every other licence gets no trade and is not
-   stored) and to drop Los Angeles and New York licence rows whose coordinates or ZIP are outside the city. Stored rows keep their old
-   tags until you run the re-tag in the report (OWNER MUST RUN after review).
+   stored), to drop Los Angeles rows farther than 30 miles and New York rows farther than 22 miles from the city centre, or whose ZIP is
+   outside that radius or in another state (a radius, not a city line: Santa Monica and Yonkers rows stay, titled with the dataset's city),
+   and to make every licence feed only (never emailed or pushed) unless the row names a business. Stored rows keep their old tags until you
+   run the re-tag in the report (OWNER MUST RUN after review).
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

@@ -151,9 +151,15 @@ export interface SocrataDataset {
   /**
    * Round 33 (business licences, switch HOLLER_BUSINESS_TAG_FIX_ENABLED): the dataset lists businesses a city licenses wherever they are
    * (Los Angeles rows carry ZIPs in Gilroy and Las Vegas; NYC rows carry out-of-state addresses). With the switch on, a row whose own
-   * coordinates or ZIP lie farther than `maxMi` from `near` (or whose ZIP is in another state) is dropped, not placed in the city.
+   * coordinates or ZIP lie farther than `maxMi` from `near` (or whose ZIP is in another state) is dropped, not placed in the city. A row with
+   * no believable point is placed at its in-area ZIP's centroid (flagged approximate) or gets no point: never at `fallbackCenter`.
    */
-  areaGuard?: { near: { lat: number; lon: number }; maxMi: number };
+  areaGuard?: {
+    near: { lat: number; lon: number };
+    maxMi: number;
+    /** The source's state as a lat/lon box: a point outside it, or whose longitude equals its latitude, is no point (lib/signals/mapping/business.ts trustedPoint). */
+    box?: { minLat: number; maxLat: number; minLon: number; maxLon: number };
+  };
   /**
    * 311 only (round 20, NYC 311 call path; review P1-1). A 311 summary carries no street address, because most requests are about a street
    * or one apartment, and a resident made the request. When `when` says the request is about a WHOLE BUILDING, the building's BLOCK (New York
@@ -1051,7 +1057,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',
     kind: 'civic', subtype: 'business', idField: 'location_account', dateField: 'location_start_date', locationField: 'location_1',
     titleFields: [], textFields: ['primary_naics_description'], summaryFields: ['primary_naics_description'],
-    zipField: 'zip_code', areaGuard: { near: { lat: 34.0522, lon: -118.2437 }, maxMi: 30 },
+    zipField: 'zip_code', areaGuard: { near: { lat: 34.0522, lon: -118.2437 }, maxMi: 30, box: { minLat: 32.5, maxLat: 42.1, minLon: -124.5, maxLon: -114.1 } },
     extraWhere: "location_end_date IS NULL AND (primary_naics_description IS NULL OR primary_naics_description NOT IN ('Independent artists, writers, & performers','Motion picture & video industries (except video rental)','Lessors of real estate (including mini warehouses & self-storage units)','All other personal services','Individual & family services','Home health care services','Legal services','Offices of physicians (except mental health specialists)','Offices of mental health practitioners (except physicians)','Offices of all other miscellaneous health practitioners','Offices of physical, occupational & speech therapists, & audiologists','Offices of real estate agents & brokers','Agents & managers for artists, athletes, entertainers, & other public figures','Other direct selling establishments (including door-to-door retailing, frozen food plan providers, party plan merchandisers, & coffee-break service providers)','Other Personal Care Services','Musical Groups and Artists','Other Management Consulting Services'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.lacity.org', '6rrh-rzua'), fieldSource: 'sourced',
     note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. PRIVACY: the public parser reads no name column (dba_name, business_name): both can be a sole proprietor personal name. Only the private contact spec (CONTACT_SPECS, round 18) reads them, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName). Title is the NAICS description only, no street address. Sole-proprietor-heavy NAICS groups are excluded (live group-by 2026-11-17; the last three spellings were seen live by the verification review, verify.md P2-7).',
@@ -1061,7 +1067,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'business', idField: 'license_nbr', dateField: 'license_creation_date', latField: 'latitude', lonField: 'longitude',
     fallbackCenter: { lat: 40.7128, lon: -74.006 },
     titleFields: [], textFields: ['business_category', 'license_type'], summaryFields: ['business_category'],
-    zipField: 'address_zip', areaGuard: { near: { lat: 40.7128, lon: -74.006 }, maxMi: 30 },
+    zipField: 'address_zip', areaGuard: { near: { lat: 40.7128, lon: -74.006 }, maxMi: 22, box: { minLat: 40.4, maxLat: 45.1, minLon: -79.8, maxLon: -71.8 } },
     extraWhere: "license_status = 'Active' AND business_category NOT IN ('Tow Truck Driver','Sightseeing Guide','Ticket Seller Individual','Pedicab Driver','Process Server Individual')",
     lookbackOverride: 30, windowForwardDays: 0, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofnewyork.us', 'w7w3-xahh'), fieldSource: 'sourced',
     note: 'DCWP Issued Licenses, updated 2026-11-06, max license_creation_date 2026-10-30, hence the 30 day lookback. Individual licences (drivers, guides) are excluded; PRIVACY: the public parser reads no name column (dba_trade_name, business_name): both can be a person. Only the private contact spec (CONTACT_SPECS, round 18) reads them, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName). Title is the business category, no street address.',

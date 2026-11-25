@@ -1,8 +1,11 @@
 import type { CategoryId } from '@/lib/signals/categories';
 import { STOREFRONT_LICENCES, storefrontKindOfName } from '@/lib/signals/lead-rules';
 import { titleBodyOf } from '@/lib/signals/carry';
-import { haversineMi } from '@/lib/geo';
-import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
+import { haversineMi, lookupZip } from '@/lib/geo';
+import { SOCRATA_DATASETS, type SocrataDataset } from '@/lib/signals/adapters/socrata-datasets';
+import { BUSINESS_TAG_FIX_FLAG, businessTagFixEnabled } from './business-flag';
+
+export { BUSINESS_TAG_FIX_FLAG, businessTagFixEnabled };
 
 /**
  * Round 33 (LA business licences): the trades a new business licence supports, from the licence's OWN type text and nothing else.
@@ -24,12 +27,8 @@ import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
  * Never tagged from a licence: locksmith, insurance, business-services, cleaning and hvac. The label engine marks all five context
  * for every business licence (ctx-business-blanket, ctx-licence-hvac, ctx-mobile-business), so nothing is lost.
  */
-export const BUSINESS_TAG_FIX_FLAG = 'HOLLER_BUSINESS_TAG_FIX_ENABLED';
-
-/** Off unless "1", "true", "on" or "yes" (any case). Read at call time; a client bundle (undefined) always sees it off. */
-export function businessTagFixEnabled(value: string | undefined = typeof process !== 'undefined' ? process.env?.HOLLER_BUSINESS_TAG_FIX_ENABLED : undefined): boolean {
-  return typeof value === 'string' && /^(?:1|true|on|yes)$/i.test(value.trim());
-}
+/** Every trade a licence can be tagged with while the switch is on (shop, food, parking, storage). */
+export const BUSINESS_FIX_TRADES: readonly CategoryId[] = ['signs-printing', 'janitorial-commercial', 'security', 'pest-control'];
 
 /** A mobile food, cart, peddler or vending licence has no building (same words as lead-rules MOBILE_LICENCE_RE). */
 const MOBILE_LICENCE_RE = /mobile food|food truck|peddl|\bcarts?\b|vending|stoop line stand|general vendor/i;
@@ -44,7 +43,7 @@ export function businessTradesForType(source: string | null | undefined, licence
   const name = licenceType.trim();
   if (!name) return [];
   if (MOBILE_LICENCE_RE.test(name)) return [];
-  const kind = storefrontKindOfName(source, name);
+  const kind = storefrontKindOfName(source, name, true);
   if (!kind) return [];
   if (kind === 'storage') return ['security'];
   const trades: CategoryId[] = ['signs-printing', 'janitorial-commercial', 'security'];
@@ -52,27 +51,90 @@ export function businessTradesForType(source: string | null | undefined, licence
   return trades;
 }
 
-/** Trades for a row whose classifier text is its type columns joined with " | ": any part that is a listed storefront type counts. */
+/**
+ * A NAICS code (live San Francisco rows carry ONLY this: 17 of 17 rows of the 2026-11-16 capture have both description columns null) as the
+ * type phrase the licence list reads. Retail 44-45 is "Retail" (not nonstore retail, 454), food service 722 is "Food service and lodging"
+ * (the phrase the title and the list use), accommodation 721 is its own phrase (a hotel is no restaurant: no tag). Ranges ("4400-4599",
+ * "7220-7229") are read by their first code. Anything else gives null.
+ */
+export function naicsTypePhrase(code: string): string | null {
+  const m = /^(\d{2,6})(?:\s*-\s*\d{2,6})?$/.exec(code.trim());
+  if (!m) return null;
+  const d = m[1];
+  if (d.startsWith('722')) return 'Food service and lodging';
+  if (d.startsWith('721')) return 'Accommodation';
+  if (d.startsWith('454')) return 'Nonstore retail';
+  if (d.startsWith('44') || d.startsWith('45')) return 'Retail';
+  return null;
+}
+
+/**
+ * Trades for a row whose classifier text is its type columns joined with " | ": any part that is a listed storefront type counts, and a
+ * NAICS code part counts through its phrase (naicsTypePhrase).
+ */
 export function businessTradesForText(source: string | null | undefined, text: string): CategoryId[] {
   const out = new Set<CategoryId>();
   // A mobile word in ANY type column (SF lists several types in one column) means no building: no trade at all.
   if (MOBILE_LICENCE_RE.test(text)) return [];
-  for (const part of text.split(' | ')) for (const t of businessTradesForType(source, part)) out.add(t);
+  for (const raw of text.split(' | ')) {
+    const part = naicsTypePhrase(raw) ?? raw;
+    for (const t of businessTradesForType(source, part)) out.add(t);
+  }
   return [...out];
+}
+
+// ---- area guard (pure; the parser and the stored-row re-tag share it) --------------------------------------------------------------------
+
+export type AreaGuard = NonNullable<SocrataDataset['areaGuard']>;
+
+/**
+ * A point the feed can be believed about. The Los Angeles feed holds 32 of 175 stored rows whose longitude is a copy of the latitude
+ * (34.06, 34.06): the latitude is right and the longitude is wrong. Such a point, or one outside the source's state box, is no point at
+ * all: the row is then decided by its ZIP.
+ */
+export function trustedPoint(lat: number, lon: number, g: AreaGuard): boolean {
+  if (lat === lon) return false;
+  if (g.box && (lat < g.box.minLat || lat > g.box.maxLat || lon < g.box.minLon || lon > g.box.maxLon)) return false;
+  return true;
+}
+
+/** 'none': no 5 digit ZIP ("7102", "N/A", "-"). 'out': the ZIP is unknown, in another state or farther than maxMi. 'in': inside the area. */
+export function zipVerdict(zipText: string | null | undefined, g: AreaGuard, state: string): 'none' | 'in' | 'out' {
+  const z5 = String(zipText ?? '').trim().slice(0, 5);
+  if (!/^\d{5}$/.test(z5)) return 'none';
+  const z = lookupZip(z5);
+  if (!z || z.state !== state) return 'out';
+  return haversineMi(g.near.lat, g.near.lon, z.lat, z.lon) > g.maxMi ? 'out' : 'in';
 }
 
 /**
  * What the re-tag of a STORED business row gives (the owner's UPDATE in the round 33 report, and the replay with the switch on). A stored
- * row keeps only its title ("New business license in Los Angeles: Clothing stores"), a rounded point and a ZIP, so this reads the title
- * body and the point. Out of the dataset's area (areaGuard, by the stored point) the row gets no trade. A source with no licence-type list
- * is returned unchanged.
+ * row keeps its title ("New business license in Los Angeles: Clothing stores"), a rounded point, its ZIP and data.approxLocation, so this
+ * reads those and the same area rules as the parser: a trusted point farther than maxMi, or a ZIP outside the area, clears the trades; a
+ * row whose point is not believable (lat = lon) is decided by its ZIP; a New York row sitting at the City Hall stand-in (approxLocation)
+ * with no usable ZIP is cleared (the parser now gives it no point). A source with no licence-type list is returned unchanged. It only ever
+ * REMOVES a stored tag: a stored row's hidden type columns are not in hand, so a tag the old rules did not give is not added here.
  */
-export function retagStoredBusinessRow(row: { source: string; title: string | null; lat?: number | null; lon?: number | null; categories: string[] | null }): string[] {
+export function retagStoredBusinessRow(row: {
+  source: string;
+  title: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  zip?: string | null;
+  data?: { approxLocation?: unknown } | null;
+  categories: string[] | null;
+}): string[] {
   const old = row.categories ?? [];
   if (!hasBusinessTypeList(row.source)) return old;
-  const g = SOCRATA_DATASETS.find((d) => d.id === row.source)?.areaGuard;
-  if (g && typeof row.lat === 'number' && typeof row.lon === 'number' && haversineMi(g.near.lat, g.near.lon, row.lat, row.lon) > g.maxMi) return [];
-  // Only ever removes a stored tag: a stored row's hidden type columns (SF lists several licence types in one) are not in hand, so a tag the
-  // old rules did not give is not added here (the re-tag must not create an alert).
+  const ds = SOCRATA_DATASETS.find((d) => d.id === row.source);
+  const g = ds?.areaGuard;
+  if (g && ds) {
+    const approx = row.data?.approxLocation === true;
+    const real = typeof row.lat === 'number' && typeof row.lon === 'number' && !approx && trustedPoint(row.lat, row.lon, g);
+    if (real && haversineMi(g.near.lat, g.near.lon, row.lat as number, row.lon as number) > g.maxMi) return [];
+    const zv = zipVerdict(row.zip, g, ds.state);
+    if (zv === 'out') return [];
+    if (!real && zv === 'none' && approx) return [];
+  }
   return businessTradesForType(row.source, titleBodyOf(row.title)).filter((c) => old.includes(c));
 }

@@ -26,7 +26,7 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
-import { contactPathOf, holdOf, missingHoldColumn } from './alert-gate';
+import { contactPathOf, holdOf, licenceGateApplies, missingHoldColumn } from './alert-gate';
 import { isPermitRecord } from './permit-routing';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
@@ -323,7 +323,7 @@ export function markContactPaths(inserted: StoredSignal[], built: readonly Signa
   const byKey = new Map<string, SignalInput>();
   for (const b of built) byKey.set(`${b.source}\u0000${b.externalId}`, b);
   for (const r of inserted) {
-    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null })) continue;
+    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null }) && !licenceGateApplies({ subtype: r.subtype ?? null })) continue;
     const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
     let contacts: ReturnType<typeof sanitizeContacts> = [];
     try {
@@ -476,7 +476,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       try {
         const profiles = await loadProfiles(db, now);
         // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
-        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
+        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null }) || licenceGateApplies({ subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
         if (!gateOn) for (const s of storedAll) s.contactPath = undefined;
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades

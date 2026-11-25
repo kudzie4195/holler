@@ -3,6 +3,7 @@ import { isAlertLabel, ruleFor, type LabelInput, type OpportunityLabel } from '.
 import { isPermitRecord, routeFor } from './permit-routing';
 import { siteAddressFromSummary } from './permit-value';
 import { belowMinimum, type WorkProfile, type WorkRecord } from './work-profile';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 /**
  * Which matched cards go out as alerts (email and push) and which stay in the feed only (round 18 ROUTES). A held card is still matched,
@@ -12,8 +13,8 @@ import { belowMinimum, type WorkProfile, type WorkRecord } from './work-profile'
  *   held        a (trade, rule family) pair in PRECISION_HOLDS below: held out of alerts until its quality is proven. Feed shows "Background".
  *   background  a PERMIT card with no contact path (contactPathOf): it names nobody to call and no place to go. Feed shows "Background".
  *
- * The contact gate is for building permits only. Bids, storm reports, code violations, 311 requests, inspections and business licences are
- * never held by it. A record whose contact state is not known (undefined: a row read back from the database without its contacts, as the
+ * The contact gate is for building permits only (round 33: and new-business licences while HOLLER_BUSINESS_TAG_FIX_ENABLED is on, held unless
+ * the row names a business). Bids, storm reports, code violations, 311 requests and inspections are never held by it. A record whose contact state is not known (undefined: a row read back from the database without its contacts, as the
  * backfill and the rematch do) is never held by it either: only the scan, which holds the contacts it just stored, decides "no contact".
  *
  * A held card stays held: nothing ever clears alert_hold or re-arms the row, so a held card whose permit later gains a contact (or whose
@@ -218,6 +219,11 @@ export function isHeldPair(trade: string | null, family: string, holds: readonly
   return holds.some((h) => h.trade === trade && h.family === family);
 }
 
+/** Round 33: a new-business licence while the switch is on. Its contact state is set by the scan (markContactPaths) and /check (check/delivery.ts). */
+export function licenceGateApplies(sig: { kind?: string | null; subtype?: string | null }): boolean {
+  return businessTagFixEnabled() && (sig.subtype ?? '').trim().toLowerCase() === 'business';
+}
+
 export interface GateInput extends WorkRecord {
   source: string;
   /** undefined = not known (never held by the contact gate); null = known to have no contact path. */
@@ -239,6 +245,9 @@ export function alertHoldFor(
   if (!isAlertLabel(label)) return null;
   if (holds.length > 0 && isHeldPair(trade, ruleFamilyOf(sig, trade), holds)) return 'held';
   if (isPermitRecord(sig) && sig.contactPath === null) return 'background';
+  // Round 33 (switch HOLLER_BUSINESS_TAG_FIX_ENABLED): a new-business licence card names no business and no address (a type word, a ZIP and a
+  // rounded point; 38 of 1,632 stored rows have a contact). It is feed only unless the row has a named business to call.
+  if (licenceGateApplies(sig) && sig.contactPath !== undefined && sig.contactPath !== 'business') return 'background';
   return null;
 }
 

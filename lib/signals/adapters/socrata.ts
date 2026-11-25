@@ -7,7 +7,7 @@ import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName, stripActor } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
-import { businessTagFixEnabled, businessTradesForText, hasBusinessTypeList } from '@/lib/signals/mapping/business';
+import { businessTagFixEnabled, businessTradesForText, hasBusinessTypeList, trustedPoint, zipVerdict } from '@/lib/signals/mapping/business';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
 import { haversineMi, lookupZip } from '@/lib/geo';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
@@ -63,9 +63,14 @@ function validLatLon(lat: number | null, lon: number | null): { lat: number; lon
 }
 
 /** Socrata `location` / `point` values come as {latitude, longitude} strings or GeoJSON Points. */
-export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon: number; approx: boolean } | null {
+export function extractLatLon(row: Row, ds: SocrataDataset, guarded = false): { lat: number; lon: number; approx: boolean } | null {
+  // Round 33 (guarded = the switch is on and the dataset has an areaGuard): a point the feed cannot be believed about (longitude equal to
+  // latitude, or outside the source's state) is skipped, and a row with no point is NEVER put at fallbackCenter: it gets its in-area ZIP's
+  // centroid (flagged approximate) or no point.
+  const g = guarded ? ds.areaGuard : undefined;
+  const ok = (p: { lat: number; lon: number } | null) => (p && (!g || trustedPoint(p.lat, p.lon, g)) ? p : null);
   if (ds.latField && ds.lonField) {
-    const p = validLatLon(num(row[ds.latField]), num(row[ds.lonField]));
+    const p = ok(validLatLon(num(row[ds.latField]), num(row[ds.lonField])));
     if (p) return { ...p, approx: false };
   }
   if (ds.locationField) {
@@ -73,10 +78,10 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
     if (v && typeof v === 'object') {
       const o = v as Record<string, unknown>;
       if (Array.isArray(o.coordinates) && o.coordinates.length >= 2) {
-        const p = validLatLon(num(o.coordinates[1]), num(o.coordinates[0]));
+        const p = ok(validLatLon(num(o.coordinates[1]), num(o.coordinates[0])));
         if (p) return { ...p, approx: false };
       }
-      const p = validLatLon(num(o.latitude), num(o.longitude));
+      const p = ok(validLatLon(num(o.latitude), num(o.longitude)));
       if (p) return { ...p, approx: false };
     }
   }
@@ -87,9 +92,17 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
       let a = Number(m[1]);
       let b = Number(m[2]);
       if (a < 0 && b > 0) [a, b] = [b, a]; // "lon, lat" order guard for US coordinates
-      const p = validLatLon(a, b);
+      const p = ok(validLatLon(a, b));
       if (p) return { ...p, approx: false };
     }
+  }
+  if (g) {
+    if (ds.zipField && zipVerdict(s(row, ds.zipField), g, ds.state) === 'in') {
+      const z = lookupZip(s(row, ds.zipField));
+      const p = z ? validLatLon(z.lat, z.lon) : null;
+      if (p) return { ...p, approx: true };
+    }
+    return null;
   }
   if (ds.zipCentroid && ds.zipField) {
     // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state AND
@@ -106,25 +119,18 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
 }
 
 /**
- * Round 33: the area guard of a dataset that lists businesses licensed by a city but located anywhere (Los Angeles: ZIPs in Gilroy,
- * Las Vegas and Washington; NYC: out-of-state addresses). True when the row's own evidence puts it outside `ds.areaGuard.maxMi` of
- * `near`: its real coordinates (not a fallback centre) are farther away, or its ZIP's centroid is, or the ZIP is not in the dataset's
- * state. Same shape as zipCentroid (review P3-H: an El Paso ZIP on a Dallas row is not placed in El Paso). A row with neither coordinates
- * nor a ZIP says nothing against the area and is kept (it has no point, so no member can match it).
+ * Round 33: the area guard of a dataset that lists businesses a city licenses wherever they are (Los Angeles: ZIPs in Gilroy, Las Vegas and
+ * Washington; NYC: out-of-state and Long Island addresses). True when the row's own evidence puts it outside `ds.areaGuard.maxMi` of
+ * `near`: a believable point (not lat = lon, inside the state box) farther away, or a 5 digit ZIP whose centroid is, that is unknown, or
+ * that is in another state. A row with no believable point and no 5 digit ZIP ("7102", "N/A", none) says nothing against the area and is
+ * kept WITHOUT a point (extractLatLon never puts it at the fallback centre), so no member is matched to it by place.
  */
 export function outsideAreaGuard(row: Row, ds: Pick<SocrataDataset, 'areaGuard' | 'latField' | 'lonField' | 'locationField' | 'latLonTextField' | 'zipField' | 'state'>): boolean {
   const g = ds.areaGuard;
   if (!g) return false;
-  const p = extractLatLon(row, { ...ds, zipCentroid: undefined, fallbackCenter: undefined } as SocrataDataset);
+  const p = extractLatLon(row, { ...ds, zipCentroid: undefined, fallbackCenter: undefined } as SocrataDataset, true);
   if (p && !p.approx && haversineMi(g.near.lat, g.near.lon, p.lat, p.lon) > g.maxMi) return true;
-  const zipText = ds.zipField ? s(row, ds.zipField).slice(0, 5) : '';
-  if (/^\d{5}$/.test(zipText)) {
-    const z = lookupZip(zipText);
-    if (!z) return true;
-    if (z.state !== ds.state) return true;
-    if (haversineMi(g.near.lat, g.near.lon, z.lat, z.lon) > g.maxMi) return true;
-  }
-  return false;
+  return !!ds.zipField && zipVerdict(s(row, ds.zipField), g, ds.state) === 'out';
 }
 
 /**
@@ -618,7 +624,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         ? businessSummary(summaryParts, address)
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
 
-      const exactPos = extractLatLon(row, ds);
+      const exactPos = extractLatLon(row, ds, businessTagFix && ds.subtype === 'business');
       const pos = privatePosition(exactPos, ds.subtype);
       // Final review P2-1: the building of a NYC whole-building heat complaint, as a keyed hash of its exact point (building-ref.ts).
       const bref = isWholeBuildingHeat({ source: ds.id, title }) ? buildingRefOf(exactPos?.lat, exactPos?.lon) : null;
