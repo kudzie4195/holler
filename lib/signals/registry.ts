@@ -17,6 +17,7 @@ import { adapters as sam } from './adapters/sam';
 import { adapters as cityBids } from './adapters/city-bids';
 import { adapters as localBids } from './adapters/bids-local';
 import { adapters as erate } from './adapters/erate';
+import { adapters as gwinnettSite } from './adapters/gwinnett-site';
 import { adapters as pageWatch } from './adapters/page-watch';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
@@ -51,6 +52,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...localBids,
   // Round 33: USAC E-Rate Form 470 requests (schools and libraries, network cabling): on only with HOLLER_ERATE_ENABLED and HOLLER_BIDS_ENABLED both set.
   ...erate,
+  // Round 35: Gwinnett County's own solicitation list, plain fetch: on only with HOLLER_CITY_BIDS_R35_ENABLED and HOLLER_BIDS_ENABLED both set.
+  ...gwinnettSite,
   // Round 20 page watch: public bid pages read with a plain fetch (Firecrawl only where a page needs a browser). All on probation.
   ...pageWatch,
   ...ticketmaster,

@@ -918,6 +918,7 @@ export const en = {
   'srcl.fixed.holler-request': 'Requests made on Holler',
   'srcl.fixed.bids-manual': 'Government bid pages checked by Holler',
   'srcl.fixed.bids-gwinnett': 'Gwinnett County purchasing: open solicitations',
+  'srcl.fixed.bids-gwinnett-site': 'Gwinnett County purchasing: open solicitations (county site)',
   'srcl.fixed.bids-rockdale': 'Rockdale County procurement: current bids, RFPs and RFQs',
   'srcl.fixed.bids-tucker': 'City of Tucker procurement: bids and RFPs',
   'srcl.fixed.bids-dunwoody': 'City of Dunwoody procurement: current opportunities',

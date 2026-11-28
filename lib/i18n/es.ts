@@ -890,6 +890,7 @@ export const es: Record<DictKey, string> = {
   'srcl.fixed.holler-request': 'Solicitudes hechas en Holler',
   'srcl.fixed.bids-manual': 'Páginas de licitaciones del gobierno revisadas por Holler',
   'srcl.fixed.bids-gwinnett': 'Compras del condado de Gwinnett: licitaciones abiertas',
+  'srcl.fixed.bids-gwinnett-site': 'Compras del condado de Gwinnett: licitaciones abiertas (sitio del condado)',
   'srcl.fixed.bids-rockdale': 'Compras del condado de Rockdale: licitaciones, RFP y RFQ vigentes',
   'srcl.fixed.bids-tucker': 'Compras de la ciudad de Tucker: licitaciones y RFP',
   'srcl.fixed.bids-dunwoody': 'Compras de la ciudad de Dunwoody: oportunidades vigentes',

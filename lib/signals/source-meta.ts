@@ -93,6 +93,7 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "bids-la": { id: "bids-la", label: "Los Angeles open data: open bids", sourceUrl: "https://data.lacity.org/d/hf3r-utnq" },
   "bids-batonrouge": { id: "bids-batonrouge", label: "Baton Rouge open data: open bids", sourceUrl: "https://data.brla.gov/d/u9zk-8nix" },
   "bids-gwinnett": { id: "bids-gwinnett", label: "Gwinnett County purchasing: open solicitations", sourceUrl: "https://www.gwinnettcounty.com/departments/FinancialServices/Purchasing/BidsandRFPs" },
+  "bids-gwinnett-site": { id: "bids-gwinnett-site", label: "Gwinnett County purchasing: open solicitations (county site)", sourceUrl: "https://www.gwinnettcounty.com/government/departments/financial-services/purchasing/bids-rfps" },
   "bids-rockdale": { id: "bids-rockdale", label: "Rockdale County procurement: current bids, RFPs and RFQs", sourceUrl: "https://www.rockdalecountyga.gov/current-bids-rfp-rfq" },
   "bids-tucker": { id: "bids-tucker", label: "City of Tucker procurement: bids and RFPs", sourceUrl: "https://www.tuckerga.gov/business-and-development/bids/" },
   "bids-dunwoody": { id: "bids-dunwoody", label: "City of Dunwoody procurement: current opportunities", sourceUrl: "https://www.dunwoodyga.gov/business/doing-business-with-the-city/procurement-opportunities" },

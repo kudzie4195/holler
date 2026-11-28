@@ -1286,6 +1286,9 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'bids-rockdale': 'act_now',
   'bids-tucker': 'act_now',
   'bids-dunwoody': 'act_now',
+  // Round 35: the same Gwinnett list read from the county site with a plain fetch (lib/signals/adapters/gwinnett-site.ts). Behind
+  // HOLLER_CITY_BIDS_R35_ENABLED and HOLLER_BIDS_ENABLED.
+  'bids-gwinnett-site': 'act_now',
   // Round 33: USAC E-Rate Form 470 (lib/signals/adapters/erate.ts): a school or library asks for bids. A heads-up, never act now: the record has no
   // bid deadline (its one date is the earliest day a contract may be signed, stored as data.contractFrom, not dueDate), and only firms
   // registered with USAC can be paid. Same flags, plus HOLLER_ERATE_ENABLED.
