@@ -46,7 +46,7 @@ async function render(page: typeof CheckPage | typeof CheckPageEs, sp: Record<st
 }
 
 const CASES: Array<[string, string]> = [
-  ['28202', 'landscaping'], // live
+  ['28202', 'siding-gutters'], // live (R35: Charlotte landscaping was re-measured to limited)
   ['27601', 'siding-gutters'], // limited (storm cell)
   ['28202', 'lawn-care'], // waitlist
   ['28202', 'pressure-washing'], // the composite cell: live

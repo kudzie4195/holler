@@ -642,8 +642,8 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   airport: 'Check which airport and how long the delay runs.',
   permit: 'Check the permit type and address, then look at it on a map.',
   '311': 'Check what was reported and where, then look at it on a map.',
-  violation: 'Check the address and what must be fixed, then look at it on a map.',
-  inspection: 'Check what failed and the address, then decide if it is worth a visit.',
+  violation: 'Check the block and what must be fixed, then look at it on a map.',
+  inspection: 'Check what failed and the block, then decide if it is worth a visit.',
   business: 'Check the business name and address.',
   'event-permit': 'Check the event date and who holds the permit.',
   'big-event': 'Check the date and the venue.',
@@ -655,7 +655,7 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'resident-request': 'Reply through Holler if it fits what you do.',
   // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.
   sale: 'A home on this block sold; homes often need work in the first months.',
-  other: 'Check the address.',
+  other: 'Check the place.',
 };
 
 /** A commercial sale's next step (the residential one is NEXT_STEP.sale). */

@@ -38,7 +38,7 @@ describe('the composite cell decides the answer', () => {
       expect(pw.state, name).toBe(measuredCell(centre, PRESSURE_WASHING_ID));
       expect(checkAnswer(zip, PRESSURE_WASHING_ID)).toEqual(pw);
     }
-    expect(['charlotte', 'atlanta', 'raleigh', 'austin'].map((c) => COMPOSITE_CELL_TABLE[c][PRESSURE_WASHING_ID])).toEqual(['live', 'live', 'live', 'limited']);
+    expect(['charlotte', 'atlanta', 'raleigh', 'austin'].map((c) => COMPOSITE_CELL_TABLE[c][PRESSURE_WASHING_ID])).toEqual(['live', 'limited', 'live', 'limited']);
     // What /check said before (cleaning alone): Charlotte waitlist, Atlanta and Austin limited.
     expect(coverageFor(lookupZip('28202')!, 'cleaning', true).state).toBe('waitlist');
     expect(tradeSignupClosed(PRESSURE_WASHING_ID)).toBe(PRESSURE_WASHING_PARTS.some((p) => tradeSignupClosed(p)));

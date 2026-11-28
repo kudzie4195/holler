@@ -34,7 +34,7 @@ function form(zip: string, trades: string[], lang: 'en' | 'es' = 'en', submitLab
 
 describe('D2: one coverage answer per picked trade, the same as /check', () => {
   const CASES: Array<[string, string, string, string]> = [
-    ['live', '30318', 'landscaping', 'Live'],
+    ['live', '78701', 'landscaping', 'Live'],
     ['limited', '30318', 'cleaning', 'Limited'],
     ['unmeasured', '02108', 'landscaping', 'Not measured'],
     ['storm', '75201', 'roofing', 'Storm alerts'],
@@ -66,8 +66,8 @@ describe('D2: one coverage answer per picked trade, the same as /check', () => {
   });
 
   it('a member with a live and a waitlist trade: lines for both, no waitlist notice, the normal button', () => {
-    expect(checkAnswer('30318', 'painting')!.state).toBe('waitlist');
-    const html = form('30318', ['landscaping', 'painting']);
+    expect(checkAnswer('78701', 'painting')!.state).toBe('waitlist');
+    const html = form('78701', ['landscaping', 'painting']);
     expect(html).toContain('data-answer="live"');
     expect(html).toContain('data-answer="waitlist"');
     expect(html).not.toContain('Continue anyway');
@@ -119,9 +119,9 @@ describe('D2: /signup?city=<waitlist city> has no trial pitch; old links still o
   });
 
   it('a live city and no city keep the trial page as before', async () => {
-    expect(await render('atlanta-ga', 'en')).toContain('Alerts for Atlanta, GA and the towns around it. No card needed.');
+    expect(await render('austin-tx', 'en')).toContain('Alerts for Austin, TX and the towns around it. No card needed.');
     expect(await render(undefined, 'en')).toContain('30-day free trial, no card. Takes about a minute.');
-    expect(signupWaitMeta('atlanta-ga', 'en')).toBeNull();
+    expect(signupWaitMeta('austin-tx', 'en')).toBeNull();
     expect(signupWaitMeta(undefined, 'en')).toBeNull();
   });
 });

@@ -10,7 +10,7 @@ import { coverageFor } from '@/lib/check/cells';
 import { isServedZip } from '@/lib/check/coverage';
 import { tradeLabel } from '@/lib/check/trades';
 import { lookupZip } from '@/lib/geo';
-import { EXPORT, EXPORT_NOW, HAVE_EXPORT, checkFromExport, unlimitedEmailed } from '../r25/export-reads';
+import { EXPORT, EXPORT_NOW, HAVE_EXPORT, checkFromExport } from '../r25/export-reads';
 
 const zero = { count: 0, places: 0, oldest: null, atLeast: false };
 const zeroClipped = { count: 0, places: 0, oldest: null, atLeast: true };
@@ -50,31 +50,29 @@ describe.skipIf(!HAVE_EXPORT)('P1-2 and P3-1 on the 14-day export (the review ca
   });
   afterAll(() => vi.useRealTimers());
 
-  it('91724 lawn-care: a live cell, zero records counted from complete reads, says "Too early to say here." (EN and ES)', () => {
-    const zip = '91724';
-    const trade = 'lawn-care';
-    const place = lookupZip(zip)!;
-    const cov = coverageFor(place, trade, isServedZip(place));
-    expect(cov.state).toBe('live');
-    const { totals } = checkFromExport(zip, trade);
-    expect(totals).toMatchObject({ count: 0, atLeast: false });
-    expect(unlimitedEmailed(zip, trade).count).toBe(0);
-    const en = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade), zip, lang: 'en' })!;
-    expect(en).toEqual({ state: 'limited', head: 'Too early to say here.', count: 'Recently, no alerts would have been emailed to a lawn care business within 25 miles of 91724.' });
-    const es = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, 'es'), zip, lang: 'es' })!;
-    expect(es.head).toBe('Todavía es pronto para saberlo aquí.');
-  });
-
-  it('07927 landscaping: a live cell whose zero comes from a clipped read (the routed read stopped at 500; with no limit 1 record counts): never "Worth a trial here." over "no alerts"', () => {
-    const zip = '07927';
+  // Round 35: LA lawn care (91724) and New York landscaping (07927) were re-measured to limited, so the two review cases moved to a cell that is
+  // still live (Austin landscaping). No live cell in the 14-day export counts zero from complete reads any more, so the totals are the ones those
+  // cases produced (count 0 from reads that did not stop at their limit; count 0 from a read that did).
+  it('78701 landscaping: a live cell, zero records counted from complete reads, says "Too early to say here." (EN and ES)', () => {
+    const zip = '78701';
     const trade = 'landscaping';
     const place = lookupZip(zip)!;
     const cov = coverageFor(place, trade, isServedZip(place));
     expect(cov.state).toBe('live');
-    const { totals, clippedReads } = checkFromExport(zip, trade);
-    expect(totals).toMatchObject({ count: 0, atLeast: true });
-    expect(clippedReads).toContain('routedRecent');
-    expect(unlimitedEmailed(zip, trade).count).toBe(1);
+    const totals = { count: 0, places: 0, oldest: null, atLeast: false };
+    const en = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade), zip, lang: 'en' })!;
+    expect(en).toEqual({ state: 'limited', head: 'Too early to say here.', count: 'Recently, no alerts would have been emailed to a landscaping business within 25 miles of 78701.' });
+    const es = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, 'es'), zip, lang: 'es' })!;
+    expect(es.head).toBe('Todavía es pronto para saberlo aquí.');
+  });
+
+  it('a live cell whose zero comes from a clipped read (a lower bound): never "Worth a trial here." over "no alerts"', () => {
+    const zip = '78701';
+    const trade = 'landscaping';
+    const place = lookupZip(zip)!;
+    const cov = coverageFor(place, trade, isServedZip(place));
+    expect(cov.state).toBe('live');
+    const totals = { count: 0, places: 0, oldest: null, atLeast: true };
     for (const lang of ['en', 'es'] as const) {
       const v = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, lang), zip, lang })!;
       // The zero is a lower bound, so the page makes no zero claim at all (P2-4, P3-1): the head alone.

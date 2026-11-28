@@ -237,8 +237,11 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
   it("the member's cell is the site's cell: the same lib/check/cells.ts answer /check gives a visitor for that city and trade", () => {
     const cases: Array<[string, string[], 'live' | 'limited' | 'waitlist', string[]]> = [
       ['atlanta', ['lawn-care'], 'limited', ['lawn-care']],
-      ['raleigh', ['lawn-care'], 'live', []],
-      ['atlanta', ['landscaping', 'lawn-care'], 'live', []],
+      // Round 35: Raleigh and Atlanta landscaping and lawn care were re-measured to limited (new-build permits); Austin stays live
+      ['raleigh', ['lawn-care'], 'limited', ['lawn-care']],
+      ['austin', ['lawn-care'], 'live', []],
+      ['austin', ['landscaping', 'lawn-care'], 'live', []],
+      ['atlanta', ['landscaping', 'lawn-care'], 'limited', ['landscaping', 'lawn-care']],
       ['dallas', ['lawn-care'], 'waitlist', ['lawn-care']],
       // the Pressure washing chip saves both halves; Atlanta exterior is the owner's override: limited, both
       ['atlanta', [...PRESSURE_WASHING_PARTS], 'limited', [...PRESSURE_WASHING_PARTS]],
