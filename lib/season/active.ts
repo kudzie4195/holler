@@ -2,7 +2,9 @@ import { haversineMi } from '@/lib/geo';
 import { measuredCentres } from '@/lib/check/cells';
 import { CHECK_RADIUS_MI } from '@/lib/check/scope';
 import { expandTradeIds } from '@/lib/plan/composite-trades';
+import { switchOn } from '@/lib/build-switches';
 import { SEASON_TABLE, type SeasonRow } from './table';
+import { SEASON_TABLE_R35 } from './table-r35';
 
 /**
  * Round 30: the season rows that apply to one place, a member's trades and one day (lib/season/table.ts).
@@ -98,6 +100,20 @@ export function rowReachedBy(row: Pick<SeasonRow, 'trades' | 'allTrades'>, trade
   return row.trades.some((t) => trades.includes(t) && (allHeld || !all.includes(t)));
 }
 
+/**
+ * Round 35: the second batch of season rows (lib/season/table-r35.ts) is read only while HOLLER_SEASON_R35_ENABLED is on ("1", "true",
+ * "on" or "yes", read at call time; this code runs on the server only). Off, unset or anything else (the default): `seasonTable()` is
+ * SEASON_TABLE itself and activeSeasons returns what it returned before round 35.
+ */
+export function seasonR35Enabled(value: string | undefined = process.env.HOLLER_SEASON_R35_ENABLED): boolean {
+  return switchOn(value);
+}
+
+/** The table activeSeasons reads: the round 30 rows, plus the round 35 rows (after them, so they never win a tie) when the switch is on. */
+export function seasonTable(r35: boolean = seasonR35Enabled()): readonly SeasonRow[] {
+  return r35 ? [...SEASON_TABLE, ...SEASON_TABLE_R35] : SEASON_TABLE;
+}
+
 export function activeSeasons(input: ActiveSeasonInput): SeasonRow[] {
   const { lat, lon } = input;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return [];
@@ -105,7 +121,7 @@ export function activeSeasons(input: ActiveSeasonInput): SeasonRow[] {
   if (trades.length === 0) return [];
   const centres = new Map(measuredCentres().map((c) => [c.id, c]));
   const hits: { row: SeasonRow; miles: number; fromPeak: number; order: number }[] = [];
-  (input.table ?? SEASON_TABLE).forEach((row, order) => {
+  (input.table ?? seasonTable()).forEach((row, order) => {
     const c = centres.get(row.centre);
     if (!c) return;
     const miles = haversineMi(lat, lon, c.lat, c.lon);

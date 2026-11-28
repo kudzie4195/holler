@@ -91,6 +91,14 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    sends the same bytes as before. Set it to `1` (Preview first, one real-inbox test, then Production) to add the "This week in your
    area" line (lib/season/table.ts) to the alert digest and, with the quiet-week switch also on, to the quiet-week email. For the
    December 1 launch week it must be `1` by the Dec 1 cron run. /check shows the line without any switch.
+   NEEDS KUDZI (round 35 season rows): `HOLLER_SEASON_R35_ENABLED` stays empty at the deploy. Off, "This week in your area" (/check, /es/check,
+   the alert digest, the quiet-week email) reads exactly the round 30 rows, byte for byte as before. On (1, true, on or yes; read at call time, so
+   it needs no rebuild): 13 more rows from lib/season/table-r35.ts. Fall armyworm for lawn care (Atlanta Aug 1 to Sep 30, Charlotte and Raleigh Jul 25
+   to Oct 15, Austin Aug 15 to Oct 15), and spring pollen lines for the trades the round 30 pollen line does not reach: house cleaning (all four
+   metros), gutters (all four) and, in Austin only, pressure washing (March and April oak pollen; the round 30 Austin line is the winter cedar
+   season). A pressure washer in Atlanta, Charlotte or Raleigh keeps the round 30 line. Every booking window reads "Holler estimates that ...";
+   no line states damage or a health effect. Read gates/r35/r35-season-2/REPORT.md first (sources, what was not added and why). It also needs
+   `HOLLER_SEASON_ENABLED` for the emails; /check shows the rows with this switch alone. Turn off: empty it; the next request is back to round 30.
    NEEDS KUDZI (round 33 business licences): `HOLLER_BUSINESS_TAG_FIX_ENABLED` stays empty at the deploy. Off, the scan tags every new-business
    licence with the same fixed trade set as before. Set it to `1` (Production, after reading gates/r33/r33-la-business/REPORT.md) to tag a
    licence only by its own type (a shop, a restaurant, a parking lot or a storage facility; every other licence gets no trade and is not
