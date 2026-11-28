@@ -371,3 +371,38 @@ describe('P3: lib/signals/run.ts (a scan that carries a stage update while alert
     expect(got.BIZ).toBe(ALERT);
   });
 });
+
+describe('R35: the licence id set the scan hands to insertMatches (lib/signals/run.ts, the insertMatches call)', () => {
+  // Review of PR 22, P3-2. The set must hold new-business licences ONLY. If it held every stored signal, a permit with no contact path would be
+  // kept "already handled" on a database that refuses the alert_hold write (0027 applied, PostgREST schema cache not reloaded yet): stored
+  // with notified = true, never emailed, and not logged as an alert. On main the permit is a plain alert.
+  const permitSig = (externalId: string, over: Partial<SignalInput> = {}): SignalInput => ({
+    source: 'arcgis-dekalb-permits', externalId, kind: 'permit', title: 'New home permit in Chicago', summary: 'New Construction | Single Family Dwelling | Issued',
+    categories: ['general-contractor', 'real-estate', 'moving'] as any, severity: 1, occurredAt: '2026-11-20T08:00:00Z', lat: LOC.lat + 0.01, lon: LOC.lon, city: 'Chicago', state: 'IL', data: { subtype: 'permit' }, ...over,
+  });
+  const permitAdapter = (list: () => SignalInput[]): Adapter => ({ ...adapterOf(list), id: 'arcgis-dekalb-permits', label: 'Permits', kind: 'permit' } as Adapter);
+  const both = () => [permitSig('PERMIT'), lic('LIC', 0.02)];
+  const seed = () => ({ holler_profiles: [{ ...member, categories: ['security', 'landscaping'] }], holler_signal_contacts: [] });
+  const run = (db: FakeDb) => scan(db, [adapterOf(both), permitAdapter(both)]);
+
+  it('switch on, schema cache stale: the no-contact permit is stored and logged as a plain alert; only the licence stays handled', async () => {
+    vi.stubEnv('HOLLER_BUSINESS_TAG_FIX_ENABLED', '1');
+    quiet();
+    const db = withAlias(staleCache(seed()));
+    const rep = await run(db);
+    expect(rep.error).toBeUndefined();
+    const got = out(db);
+    expect(got.PERMIT).toBe(ALERT);
+    expect(got.LIC).toBe(HANDLED_NO_COLUMN);
+    expect(logged(db)).toEqual(['PERMIT']);
+  });
+  it('switch off, schema cache stale: both are plain alerts (as before round 33)', async () => {
+    vi.stubEnv('HOLLER_BUSINESS_TAG_FIX_ENABLED', '');
+    quiet();
+    const db = withAlias(staleCache(seed()));
+    await run(db);
+    const got = out(db);
+    expect(got.PERMIT).toBe(ALERT);
+    expect(got.LIC).toBe(ALERT);
+  });
+});

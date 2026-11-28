@@ -706,11 +706,15 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] Know this: `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`. It FAILS the build when
   (1) a browser chunk reads any server variable at runtime (any env read except `NODE_ENV`, `NEXT_PUBLIC_*` and the names in
   `CLIENT_ENV_ALLOW`, listed in `lib/env.ts` or not), (2) the value of a secret variable of the build (any name holding SECRET, TOKEN,
-  PASSWORD, KEY, LOGIN or JSON, in any case) sits in a browser chunk, or (3) a server bundle still reads an inlined name in a form Next
-  does not replace (`process.env?.NAME`). A message that only names a variable is a warning. The log prints names only, never a value.
+  PASSWORD, KEY, LOGIN or JSON, in any case, or a URL that carries a password or token) sits in a browser chunk, or (3) a server bundle
+  or a source file under `app/`, `components/` or `lib/` still reads an inlined name in a form Next does not replace
+  (`process.env?.NAME`). Rule (3) takes the inlined names from `INLINED_SWITCHES` in `lib/build-switches.ts`, read as text, so it runs on
+  Vercel too (Next writes no `env` into `.next/required-server-files.json` there); if that list cannot be read the build fails
+  (`inlined-names-unknown`). A message that only names a variable is a warning. The log prints names only, never a value; while any
+  secret variable of the build holds a value shorter than 8 characters, it prints no context text at all.
   If a build stops on a name a LIBRARY reads (a package name, a public config string): open that library's published file, confirm the value
   is public by nature, and add the name to `CLIENT_ENV_ALLOW` in `scripts/check-client-switches.mjs` with a comment naming the library and
-  why it is safe. Allowed today: `npm_package_name` and `npm_package_version` (npm; `@supabase/ssr` reads the name), the two
+  why it is safe. Allowed today: `npm_package_name` (npm; `@supabase/ssr` reads it), the two
   `REACT_APP_VERCEL_OBSERVABILITY_*` names (`@vercel/analytics`, `@vercel/speed-insights`) and `POSTHOG_RELEASE_ID` (`posthog-js`). Never
   add a `HOLLER_*` name, a secret or a name of `lib/env.ts`: the check refuses such a list. A switch the browser needs goes to
   `INLINED_SWITCHES` instead. Run it alone on the last build: `npm run check:client-switches`.
