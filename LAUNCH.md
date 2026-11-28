@@ -97,7 +97,9 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    Oct 15), and spring pollen lines for the trades the round 30 pollen line does not reach: house cleaning (all four metros), gutters
    (Atlanta, Charlotte, Raleigh, Apr 15 to May 10, the line says "after the peak") and, in Austin only, pressure washing (March and April oak
    pollen; the round 30 Austin line is the winter cedar season). A pressure washer in Atlanta, Charlotte or Raleigh keeps the round 30 wash
-   line until Apr 25, then (like the round 30 gutter rows) gets the gutter line Apr 26 to May 10; in Austin the same happens May 1 to May 10.
+   line until Apr 25, then (like the round 30 gutter rows) gets the gutter line Apr 26 to May 10; in Austin there is no gutter row, so
+   a pressure washer there gets nothing after the wash line ends Apr 30. The May 10 end of the gutter window is Holler's estimate (NC State and
+   FOX 5 give a pollen peak, no end for gutter work).
    Never two pollen lines, never the house-cleaning line. Every booking window reads "Holler estimates that ..."; no line states damage or a
    health effect. HOW TO TURN ON: set it to `1` in Vercel, then REDEPLOY: a Vercel env change reaches a running deployment only after a new
    deploy (the code reads it per request, but the running deployment still holds the old value). ROLLBACK: empty it and REDEPLOY; until that
