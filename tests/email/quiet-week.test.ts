@@ -40,7 +40,8 @@ const ID = {
   paid: '10000000-0000-4000-8000-000000000011',
   pastDue: '10000000-0000-4000-8000-000000000012',
 };
-const RALEIGH = { lat: 35.7796, lon: -78.6382, state: 'NC' };
+// Round 35: the default member sits in Austin, where landscaping and lawn care are live cells; Raleigh's two were re-measured to limited.
+const AUSTIN = { lat: 30.2672, lon: -97.7431, state: 'TX' };
 const ATLANTA = { lat: 33.749, lon: -84.388, state: 'GA' };
 
 const profile = (id: string, over: Record<string, unknown> = {}) => ({
@@ -54,7 +55,7 @@ const profile = (id: string, over: Record<string, unknown> = {}) => ({
   last_notified_at: null,
   email_verified_at: '2026-10-01T00:00:00Z',
   created_at: '2026-10-01T00:00:00Z',
-  ...RALEIGH,
+  ...AUSTIN,
   extra_areas: null,
   plan_source: null,
   store_expires_at: null,

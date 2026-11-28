@@ -97,7 +97,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   landscaping: {
     noun: 'landscapers',
     headline: 'Permit and code violation alerts for landscapers',
-    lead: 'A new house is finished with bare dirt around it. Holler shows you new-home permits near you, with the street address, and the yards a city has cited.',
+    lead: 'A new house is finished with bare dirt around it. Holler shows you new-home permits near you, with the street address, and the yards a city has cited, by block.',
     signals: [
       { signal: 'Building permits for new homes and additions', type: 'permit', why: 'When the build is done, the yard still needs sod, beds or a lawn. Hang a flyer while the crews are finishing.' },
       { signal: 'New business licenses', type: 'business', why: 'A new restaurant or office with a patio usually wants planting and irrigation before opening day.' },
@@ -174,7 +174,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'general-contractor': {
     noun: 'general contractors',
     headline: 'Building permit alerts for general contractors',
-    lead: 'A permit means a project is real enough to file. Holler lists them as the city publishes them, with the address and the permit type.',
+    lead: 'A permit means a project is real enough to file. Holler lists them as the city publishes them, with the street address and the permit type. Code violations show the block.',
     signals: [
       { signal: 'Building permits for remodels and additions', type: 'permit', why: 'Owner-filed permits sometimes have no contractor named, which means the project is open to a bid.' },
       { signal: 'Code violations', type: 'violation', why: 'A cited property has a deadline and a budget, and the owner needs a builder to meet it.' },
@@ -469,7 +469,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'siding-gutters': {
     noun: 'siding and gutter crews',
     headline: 'Permit and code violation alerts for siding and gutter crews',
-    lead: 'A new roof often brings new gutters. Holler shows you the roof and new-home permits near you, with the street address, and the exteriors a city has cited.',
+    lead: 'A new roof often brings new gutters. Holler shows you the roof and new-home permits near you, with the street address, and the exteriors a city has cited, by block.',
     signals: [
       { signal: 'Hail reports', type: 'storm-report', why: 'Hail can dent gutters and crack siding. The report does not confirm damage, but owners nearby may want a look.' },
       { signal: 'High wind and tornado reports', type: 'storm-report', why: 'Strong wind can peel siding and pull gutters loose. A report marks the area, not the damage.' },

@@ -26,10 +26,10 @@ describe('composite cells never rank below their best part', () => {
     expect(sg).toMatchObject({ state: 'limited', storm: true });
     expect(pw).toMatchObject({ state: 'limited', storm: true, centre: 'dallas' });
   });
-  it('the 8 centres the review named are storm now; the 14 others are unchanged', () => {
+  it('the 8 centres the review named are storm now; the 14 others are as the round 35 re-measure left them', () => {
     const storm = ['dallas', 'houston', 'phoenix', 'miami', 'philadelphia', 'orlando', 'norfolk', 'kansas-city'];
     for (const c of storm) expect(measuredCell(c, PRESSURE_WASHING_ID), c).toBe('storm');
-    const was: Record<string, string> = { chicago: 'live', atlanta: 'live', 'new-york': 'live', 'washington-dc': 'live', 'los-angeles': 'live', seattle: 'live', austin: 'limited', raleigh: 'live', cincinnati: 'live', 'baton-rouge': 'live', 'san-francisco': 'live', charlotte: 'live', 'new-orleans': 'live', buffalo: 'limited' };
+    const was: Record<string, string> = { chicago: 'live', atlanta: 'limited', 'new-york': 'live', 'washington-dc': 'live', 'los-angeles': 'live', seattle: 'live', austin: 'limited', raleigh: 'live', cincinnati: 'limited', 'baton-rouge': 'live', 'san-francisco': 'limited', charlotte: 'live', 'new-orleans': 'live', buffalo: 'limited' };
     for (const [c, v] of Object.entries(was)) expect(measuredCell(c, PRESSURE_WASHING_ID), c).toBe(v);
   });
 });

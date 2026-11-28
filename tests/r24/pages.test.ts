@@ -126,9 +126,9 @@ describe('every waitlist city page: no price, no trial, no sign-up link, FAQ str
     expect(html).toContain('Join the Valdosta list');
   });
   it('a live city still carries the offer (the check above is not vacuous)', async () => {
-    const html = await renderCity('atlanta-ga');
-    expect(cityOffer(cityBySlug('atlanta-ga')!).state).toBe('live');
-    expect(html).toContain('href="/signup?city=atlanta-ga"');
+    const html = await renderCity('austin-tx');
+    expect(cityOffer(cityBySlug('austin-tx')!).state).toBe('live');
+    expect(html).toContain('href="/signup?city=austin-tx"');
     expect(faqLdText(html)).toContain('$7.99');
   });
   it('a limited city (Boston, not measured) has no price in the hero and says it was not measured', async () => {
@@ -191,7 +191,7 @@ describe('/check: a waitlist answer has no offer; the header button follows the 
 
 describe('the city page and the ZIP check agree, place by place and trade by trade', () => {
   const cases: Array<{ zip: string; city: string; trade: string; want: { state: string; measured: boolean; storm: boolean }; label: string }> = [
-    { label: 'live', zip: '30318', city: 'atlanta-ga', trade: 'landscaping', want: { state: 'live', measured: true, storm: false } },
+    { label: 'live', zip: '78701', city: 'austin-tx', trade: 'landscaping', want: { state: 'live', measured: true, storm: false } },
     { label: 'limited, measured', zip: '30318', city: 'atlanta-ga', trade: 'lawn-care', want: { state: 'limited', measured: true, storm: false } },
     { label: 'limited, not measured', zip: '02108', city: 'boston-ma', trade: 'landscaping', want: { state: 'limited', measured: false, storm: false } },
     { label: 'waitlist', zip: '75201', city: 'dallas-tx', trade: 'lawn-care', want: { state: 'waitlist', measured: true, storm: false } },

@@ -233,7 +233,7 @@ describe('trade-specific, and honest about what the record does not show', () =>
     expect(briefFor({ source: 'sam-gov', label: 'act_now', trade: 'roofing' }).next).toBe("Check the due date and the buyer's bid page.");
     expect(briefFor({ source: 'bids-la', label: 'act_now', trade: 'roofing' }).next).toBe("Check the due date and the buyer's bid page.");
     expect(briefFor({ source: 'socrata-chicago-violations', label: 'act_now', trade: 'plumbing' }).next).toMatch(/look at it on a map/);
-    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' }).next).toBe('Check what failed and the address, then decide if it is worth a visit.');
+    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' }).next).toBe('Check what failed and the block, then decide if it is worth a visit.');
   });
   it('a next step is the action AFTER opening the source: none repeats "Open the source" (the Source line holds the link)', () => {
     for (const f of BRIEF_FAMILIES) expect(NEXT_STEP[f], f).not.toMatch(/\bopen\b/i);

@@ -28,11 +28,13 @@ describe('the cell table', () => {
     for (const c of MEASURED_CENTRE_IDS) for (const t of TRADES) expect(['live', 'limited', 'waitlist', 'storm']).toContain(CELL_TABLE[c][t]);
   });
 
-  it('holds the measured counts: 40 live, 60 limited, 135 storm, 667 waitlist (902 cells), with the 12 hand overrides', () => {
+  // Round 35 re-measure (2026-11-28): 12 cells and 3 pressure-washing composites went from live to limited, 40 live to 28 and 60 limited to 72 over the 902
+  // cells; the 12 r24 overrides plus the 15 r35 moves are the 27 hand overrides the file records (tests/r35/cells-remeasure.test.ts lists each).
+  it('holds the measured counts: 28 live, 72 limited, 135 storm, 667 waitlist (902 cells), with the 27 hand overrides', () => {
     const n: Record<string, number> = {};
     for (const c of MEASURED_CENTRE_IDS) for (const t of TRADES) n[CELL_TABLE[c][t]] = (n[CELL_TABLE[c][t]] ?? 0) + 1;
-    expect(n).toEqual({ live: 40, limited: 60, storm: 135, waitlist: 667 });
-    expect(CELL_OVERRIDES).toHaveLength(12);
+    expect(n).toEqual({ live: 28, limited: 72, storm: 135, waitlist: 667 });
+    expect(CELL_OVERRIDES).toHaveLength(27);
     // The overrides are in the table: Atlanta cleaning is limited, Seattle moving is limited, LA roofing is not live.
     expect(measuredCell('atlanta', 'cleaning')).toBe('limited');
     expect(measuredCell('seattle', 'moving')).toBe('limited');
