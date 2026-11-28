@@ -16,7 +16,8 @@
  * or "", and a name that is not an on/off switch (HOLLER_..._ENABLED) stops the build. `npm run build` then runs
  * scripts/check-client-switches.mjs, which fails the build if a browser chunk still reads a server variable at runtime.
  */
-export const INLINED_SWITCHES = ['HOLLER_SAM_LABELS_ENABLED', 'HOLLER_BUSINESS_TAG_FIX_ENABLED'] as const;
+// Round 35: HOLLER_PW_RULES_ENABLED (lib/signals/pw-switch.ts): the pw card reason line (brief.ts) and the sign-up hint (profile-form.tsx) run in the browser.
+export const INLINED_SWITCHES = ['HOLLER_SAM_LABELS_ENABLED', 'HOLLER_BUSINESS_TAG_FIX_ENABLED', 'HOLLER_PW_RULES_ENABLED'] as const;
 
 export type InlinedSwitch = (typeof INLINED_SWITCHES)[number];
 

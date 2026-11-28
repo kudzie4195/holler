@@ -59,6 +59,7 @@ export const ENV_KEYS = [
   'HOLLER_MANUAL_BIDS_ENABLED',
   'HOLLER_OWNER_USER_ID',
   'HOLLER_ROAD_WORDS_ENABLED',
+  'HOLLER_PW_RULES_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -147,6 +148,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_OWNER_USER_ID: process.env.HOLLER_OWNER_USER_ID,
   // Round 34: more road words (freeway, lanes, ramp, Blvd, St, Rd, Ave, I-5 ...) in the wind damage rule and the LSR adapter (lib/signals/carry.ts roadWordsEnabled). Read again at call time there.
   HOLLER_ROAD_WORDS_ENABLED: process.env.HOLLER_ROAD_WORDS_ENABLED,
+  // Round 35: the pressure-washing rule set for a member with House cleaning AND Siding and gutters (lib/signals/lead-rules.ts pwRuleOf). Inlined at build (lib/build-switches.ts).
+  HOLLER_PW_RULES_ENABLED: process.env.HOLLER_PW_RULES_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

@@ -139,6 +139,30 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    Iowa Environmental Mesonet LSR GeoJSON for seven NWS offices (Atlanta, Austin, Charlotte, Raleigh, New York, Chicago, Los Angeles),
    storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
    never stored. Turn on after one look at a scan's `lsr` row in the health email.
+   NEEDS KUDZI (round 35 pressure washing): `HOLLER_PW_RULES_ENABLED` stays empty at the deploy; off, every label and every card line is exactly
+   as before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1, report byte-identical). Inlined at build: redeploy after a change.
+   On, for a member holding BOTH House cleaning and Siding and gutters (the "Pressure washing" chip; a member who really does both trades is
+   treated the same, there is no opt-out):
+   - Heads-ups: painting, siding, deck, porch and fence permits from $1,000 to $250,000 (with no value printed, only when the permit's own
+     type names the work); concrete only for a home's driveway, patio, walk or slab (never pools, public sidewalks, additions, commercial
+     buildings); tenant fit-outs only with a storefront, retail or restaurant word; new homes only at final inspection; storefront licences,
+     held for the feed unless a business is named (on every path, whatever `HOLLER_BUSINESS_TAG_FIX_ENABLED` says); private-property graffiti
+     (a heads-up, never act now). Act now: a code order naming a dirty or mildewed exterior (no live row matches yet).
+   - Caps: one card per building or complex per 7 days, one graffiti card per block per 7 days, at most 3 graffiti heads-ups a member a UTC
+     day (the rest are held cards in the feed). The scan and the rematch read the member's last 7 days of matches for this.
+   - Feed only: severe NWS warnings (severity 3), tornado and wind damage reports, out-of-range exterior jobs, new homes before final inspection.
+   - What a pw member STOPS getting (14-day export): roof-only permits (333 of 335 alerts), new builds before final inspection (102), NWS alerts at
+     severity 2 (13; severity 3 stays as feed), hail and gust storm reports (24), Chicago code orders such as REPAIR EXTERIOR WALL (6).
+   - The card's reason line is a pressure-washing line on every path (alert, feed only, saved, stage update), EN and ES, never "roof". The
+     stage step asks a pw member with both trades, so a finished new home is their stage card.
+   - Other members' labels, holds and copy never change. One indirect effect: a pw member no longer counts as a cleaning or siding competitor
+     on the records the pw rules hide, so a nearby single-trade member's score (the low-competition term) and which 25 cards they keep in one
+     scan can change. Pw cards count pw members as their competition (membersOfTrade).
+   - The day you turn it on: stored roof and new-build cards leave pw members' feeds at once, and nothing re-matches older exterior permits by
+     itself. After the redeploy, list pw members (`select user_id from holler_profiles where categories @> array['cleaning','siding-gutters'];`)
+     and have each save Settings once, or run the member backfill for each id (lib/signals/backfill.ts backfillForUser): 14 days of history,
+     never emailed.
+   - Measurement, hand reads and cell advice: PR 30 body ("Review fixes"). Before turning it on, set COMPOSITE_CELL_TABLE as the PR body says.
    NEEDS KUDZI (round 34 road words): `HOLLER_ROAD_WORDS_ENABLED` stays empty at the deploy; off, every label and every card line is exactly as
    before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1); the one stored difference is the LSR summary line below, and LSR is off. On:
    in a wind damage report (SPC, and LSR when it is on) a tree tied to a road by freeway, fwy, lanes, ramp, Blvd, boulevard, St, street, Rd, Ave,
@@ -697,8 +721,8 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
 - [ ] Know this (round 34 switch audit): every switch listed in next.config.ts `env` is baked in at build time too, as "1" or empty, never
-  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED` and
-  `HOLLER_BUSINESS_TAG_FIX_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
+  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED`,
+  `HOLLER_BUSINESS_TAG_FIX_ENABLED` and (round 35) `HOLLER_PW_RULES_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
   one, redeploy. An instant rollback serves that deployment's own value; promoting a Preview deployment rebuilds it with the Production
   variables. `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`: the build FAILS if a browser
   chunk reads any server variable at runtime (any env read except `NODE_ENV` and `NEXT_PUBLIC_*`, listed in `lib/env.ts` or not). So a

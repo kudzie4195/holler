@@ -1,8 +1,9 @@
 import { contactGateOn, loadWorkProfiles, markStoredContactPaths } from './store';
 import { isPermitRecord } from './permit-routing';
-import { licenceGateApplies } from './alert-gate';
+import { licenceKeepsHold } from './alert-gate';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
+import { MAX_BUSINESS_PER_USER, matchOne, pickHits, pwCapped, type Hit, type MatchProfile, type MatchSignal } from './match';
+import { isPwMember } from './pw-switch';
 import { matchScope, type ScopeArea } from '@/lib/plan';
 import { APPROX_LOCATION_SOURCES } from './approx-location';
 import { historyRow, upsertMatchRows } from './quiet-matches';
@@ -302,7 +303,7 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const rows = [...byId.values()].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
     // The contact gate (migration 0027) reads the stored contacts and the card's own text, as the scan does: the same permit gets the same
     // answer here. Before 0027 it is off and nothing is held.
-    if (rows.some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }) || licenceGateApplies({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }))) {
+    if (rows.some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }) || licenceKeepsHold({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }))) {
       await markStoredContactPaths(db, rows, { permits: await contactGateOn(db) });
     }
     const hits: Hit[] = [];
@@ -315,7 +316,10 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const have = await existingMatchIds(db, profile.user_id, hits.map((h) => h.s.id));
     const fresh = have.size ? hits.filter((h) => !have.has(h.s.id)) : hits;
     // Most severe first, then newest (a future start ranks as now); new-business rows capped at 5, nearest first.
-    const picked = pickHits(fresh, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
+    // Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member gets one card per block or building here too (match.ts pwCapped). The
+    // backfill is history (never emailed), so only the de-duplication matters.
+    const capped = isPwMember(matchScope(profile).categories) ? pwCapped(fresh, now.getTime(), []) : fresh;
+    const picked = pickHits(capped, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
     if (picked.length === 0) return { matched: 0, considered: rows.length };
 
     // History, not news: notified and pushed_at set at insert, so neither the email digest nor a push counts these rows.

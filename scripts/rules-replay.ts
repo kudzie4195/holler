@@ -19,7 +19,7 @@ import { SOCRATA_DATASETS } from '../lib/signals/adapters/socrata-datasets';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { CATEGORY_IDS, type CategoryId } from '../lib/signals/categories';
-import { cannotBeDelivered, isAlertLabel, labelFor, RULES, ruleFor, SOURCE_DEFAULTS, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
+import { cannotBeDelivered, isAlertLabel, labelFor, pwRuleOf, RULES, ruleFor, SOURCE_DEFAULTS, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
 import { carriedTrades, routeKindsOf } from '../lib/signals/permit-routing';
 import { matchOne, type MatchProfile, type MatchSignal } from '../lib/signals/match';
 import {
@@ -43,6 +43,8 @@ import {
 import { businessTagFixEnabled, retagStoredBusinessRow } from '../lib/signals/mapping/business';
 import { RULE_CHOICE_QUESTIONS, RULE_CHOICES, withRuleChoices } from '../lib/signals/rule-choices';
 import { weatherFactsOf } from '../lib/signals/weather-hazard';
+import { pwRulesEnabled, PW_PARTS, PW_TRADE } from '../lib/signals/pw-switch';
+import { pwCapTimeline, pwPlaceOf } from '../lib/signals/pw-caps';
 
 const ROWS = process.argv[2] ?? '/home/claude/gates/r19/data/signals-14d.json';
 const OUT = process.argv[3] ?? '/home/claude/gates/r19/logs/RULES-replay.txt';
@@ -641,6 +643,60 @@ ingestFailures.forEach((f) => failures.push(f));
 if (worst.perDay > 10) failures.push('volume ceiling');
 if (worstHeads.perDay > 25) failures.push('heads-up ceiling');
 P(`New York HVAC urgent cards after the heat rule: ${nyHvacUrgent} (audit: about 38 in 5.1 days of NYC 311).`);
+// Round 35 review (P1-1): the composite pressure-washing member (House cleaning AND Siding and gutters), in the four metros and San Francisco,
+// with the pw volume caps (lib/signals/pw-caps.ts: one card per block or building a week, at most 3 graffiti alerts a day). Printed and
+// checked only with HOLLER_PW_RULES_ENABLED on: off, this member is the union of two trades already in the table above, and the report is
+// byte-identical to the anchor.
+if (pwRulesEnabled()) {
+  P();
+  P('Composite pressure-washing member (House cleaning + Siding and gutters, HOLLER_PW_RULES_ENABLED on), 25 miles, Starter, with the pw caps:');
+  P();
+  P('| Metro | urgent + heads-up (urgent a day / heads-up a day) | held or merged by the caps | cards by source |');
+  P('|---|---:|---:|---|');
+  const PW_METROS: Array<[string, string, number, number]> = [...METROS, ['San Francisco', 'CA', 37.7749, -122.4194]];
+  for (const [name, state, lat, lon] of PW_METROS) {
+    const profile: MatchProfile = { user_id: 'replay-pw', categories: [...PW_PARTS], lat, lon, state, radius_mi: 25, plan: 'starter' };
+    const cards: Array<{ r: Row; label: OpportunityLabel; trade: string | null }> = [];
+    for (const r of marked) {
+      if (r.lat !== null && r.lon !== null && (Math.abs(r.lat - lat) > 0.5 || Math.abs(r.lon - lon) > 0.7)) continue;
+      const m = matchOne(sigOf(r), profile, false, NOW);
+      if (!m || !isAlertLabel(m.label) || m.hold) continue;
+      cards.push({ r, label: m.label, trade: m.trade });
+    }
+    const decided = pwCapTimeline(
+      cards.map(({ r, label, trade }) => ({
+        place: trade === PW_TRADE ? pwPlaceOf(pwRuleOf({ source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary }).kind, { summary: r.summary, lat: r.lat, lon: r.lon, subtype: subtypeOf(r), kind: r.kind }) : null,
+        alert: isAlertLabel(label),
+        at: t(r.occurred_at),
+      })),
+    );
+    let urgent = 0;
+    let heads = 0;
+    let uDay = 0;
+    let hDay = 0;
+    let capped = 0;
+    const by = new Map<string, number>();
+    cards.forEach(({ r, label }, k) => {
+      if (decided[k] !== 'keep') {
+        capped++;
+        return;
+      }
+      const d = span.get(r.source) ?? 14;
+      if (label === 'act_now') {
+        urgent++;
+        uDay += 1 / d;
+      } else {
+        heads++;
+        hDay += 1 / d;
+      }
+      by.set(r.source, (by.get(r.source) ?? 0) + 1);
+    });
+    P(`| ${name} | ${urgent}+${heads} (${f1(uDay)}/${f1(hDay)}) | ${capped} | ${[...by].map(([k, c]) => `${k} ${c}`).join(', ') || 'none'} |`);
+    if (uDay > 10) failures.push(`pw composite volume ceiling in ${name} (${f1(uDay)} urgent a day)`);
+    if (hDay > 25) failures.push(`pw composite heads-up ceiling in ${name} (${f1(hDay)} a day)`);
+  }
+  P();
+}
 P(`Zero alerts in the window (owner call 10: allowed, not padded): ${zero.join(', ') || 'none'}.`);
 P();
 

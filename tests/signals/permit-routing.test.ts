@@ -374,7 +374,8 @@ describe('client safety and purity', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../lib/signals/permit-routing.ts'), 'utf8');
     const imports = [...src.matchAll(/^import .* from '(.+)';/gm)].map((m) => m[1]);
     // round 19: the record vocabulary (carry.ts) and the owner's calls (rule-choices.ts) are pure too (tests/signals/lead-rules.test.ts)
-    expect(imports).toEqual(['./categories', './carry', './rule-choices']);
+    // round 35: the pw switch reader (pw-switch.ts) has no imports; it reads HOLLER_PW_RULES_ENABLED, never this file
+    expect(imports).toEqual(['./categories', './carry', './rule-choices', './pw-switch']);
     expect(src).not.toMatch(/Date\.now|new Date\(|Math\.random|process\.env/);
   });
   it('the same title gives the same answer', () => {

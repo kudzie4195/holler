@@ -4,6 +4,7 @@ import { isPermitRecord, routeFor } from './permit-routing';
 import { siteAddressFromSummary } from './permit-value';
 import { belowMinimum, type WorkProfile, type WorkRecord } from './work-profile';
 import { businessTagFixEnabled } from './mapping/business-flag';
+import { pwRulesEnabled, PW_TRADE } from './pw-switch';
 
 /**
  * Which matched cards go out as alerts (email and push) and which stay in the feed only (round 18 ROUTES). A held card is still matched,
@@ -224,6 +225,15 @@ export function licenceGateApplies(sig: { kind?: string | null; subtype?: string
   return businessTagFixEnabled() && (sig.subtype ?? '').trim().toLowerCase() === 'business';
 }
 
+/**
+ * Round 35 (review P2-2): a licence whose hold must survive storage, which is every licence with the round 33 switch on, and every licence
+ * with HOLLER_PW_RULES_ENABLED on (a pw member's licence heads-up is held unless a business is named, whatever the round 33 switch says).
+ * With the pw switch off this is licenceGateApplies exactly.
+ */
+export function licenceKeepsHold(sig: { kind?: string | null; subtype?: string | null }): boolean {
+  return licenceGateApplies(sig) || (pwRulesEnabled() && (sig.subtype ?? '').trim().toLowerCase() === 'business');
+}
+
 export interface GateInput extends WorkRecord {
   source: string;
   /** undefined = not known (never held by the contact gate); null = known to have no contact path. */
@@ -248,6 +258,9 @@ export function alertHoldFor(
   // Round 33 (switch HOLLER_BUSINESS_TAG_FIX_ENABLED): a new-business licence card names no business and no address (a type word, a ZIP and a
   // rounded point; 38 of 1,632 stored rows have a contact). It is feed only unless the row has a named business to call.
   if (licenceGateApplies(sig) && sig.contactPath !== undefined && sig.contactPath !== 'business') return 'background';
+  // Round 35 (review P2-2): a pw licence card goes out only for a named business. Unknown (undefined) is held too: with the round 33 switch
+  // off nobody sets the licence's contact state, and "never emailed without a business" must not depend on that switch.
+  if (trade === PW_TRADE && (sig.subtype ?? '').trim().toLowerCase() === 'business' && sig.contactPath !== 'business') return 'background';
   return null;
 }
 
@@ -294,7 +307,7 @@ export function shownHold(
   /** Round 33: the card is a new-business licence. Its hold stays shown unless a named business is on file (a site address is not enough). */
   record?: { subtype?: string | null },
 ): AlertHold | null {
-  if (hold === 'background' && record && licenceGateApplies(record)) {
+  if (hold === 'background' && record && licenceKeepsHold(record)) {
     if (contactPathOf(contacts, summary) === 'business') return null;
   } else if (hold === 'background' && contactPathOf(contacts, summary) !== null) return null;
   if (hold === 'below_min' && now && now.minValue !== undefined) {

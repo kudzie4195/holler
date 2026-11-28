@@ -1,6 +1,7 @@
 import type { CategoryId } from './categories';
 import { CARRY_CARRIER_TAGS, extraCarried, type CarryInput } from './carry';
 import { ruleChoice } from './rule-choices';
+import { isPwMember } from './pw-switch';
 
 /**
  * Downstream permit routing (PLAN-2.0 item 1.1). A building permit tells the trade that does the permitted work that a job exists, so
@@ -308,6 +309,14 @@ export function carriedTrades(sig: RoutedRecord, categories: readonly string[] |
 }
 
 /**
+ * Round 35: the tags of the rows the pw rules want, besides the two pw trades: fence, concrete, deck and fit-out permits (general-contractor),
+ * storefront licences (the round 33 licence tags: janitorial-commercial), storm reports (roofing). Not painting or tree-service: Chicago
+ * tags every 311 graffiti request painting and every tree request tree-service, and those rows fill a capped read (lib/check/load.ts) before
+ * a single permit is reached (round 35 measurement). A painting-only permit still reaches a pw member through the scan, which reads no tags.
+ */
+export const PW_READ_TAGS: readonly CategoryId[] = ['fencing', 'concrete-paving', 'general-contractor', 'janitorial-commercial', 'roofing'];
+
+/**
  * Trades to read from the database for a member's trades: the trades themselves plus the tags of the permit kinds that route to them,
  * so a siding member's read also fetches roof-tagged rows. A WIDER read only: matchOne decides what a member actually gets.
  */
@@ -319,6 +328,8 @@ export function expandCategoriesForRouting(trades: readonly string[]): string[] 
   }
   // Non-permit records that carry a trade (lib/signals/carry.ts): a sewage back-up tagged plumbing reaches restoration, and so on.
   for (const t of trades) for (const tag of CARRY_CARRIER_TAGS[t as CategoryId] ?? []) if (!out.includes(tag)) out.push(tag);
+  // Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member's read also fetches the rows the pw rules want (lead-rules.ts pwRuleOf).
+  if (isPwMember(trades)) for (const tag of PW_READ_TAGS) if (!out.includes(tag)) out.push(tag);
   return out;
 }
 

@@ -22,12 +22,13 @@ import {
   weatherRowFor,
   windDamageLevel,
 } from './carry';
-import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, type RouteKind } from './permit-routing';
+import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, summaryParts, type RouteKind } from './permit-routing';
 import { jobValueOf } from './permit-value';
 import { ruleChoice, type RuleChoices } from './rule-choices';
 import { isSoleSourceSetAside, samLabelsEnabled } from './sam-labels-switch';
 import { businessTagFixEnabled } from './mapping/business-flag';
 import { weatherFactsOf, type WeatherFacts } from './weather-hazard';
+import { isPwMember, PW_PARTS, PW_TRADE } from './pw-switch';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -1443,7 +1444,213 @@ export function keptMatchLabel(label: OpportunityLabel, status: string | null | 
 
 export function labelForMember(sig: LabelInput & { categories?: readonly string[] | null }, memberTrades: readonly string[]): OpportunityLabel {
   const shared = carriedTrades(sig, sig.categories).filter((c) => memberTrades.includes(c));
+  // Round 35 (HOLLER_PW_RULES_ENABLED, off by default): a pressure-washing member's records are labelled by the pw rule set below.
+  if (isPwMember(memberTrades) && pwDecides(sig)) return pwMemberLabel(sig, shared).label;
   return labelForTrades(sig, shared);
+}
+
+// ---- Round 35: pressure washing (HOLLER_PW_RULES_ENABLED) -----------------------------------------------------------------------------
+
+/**
+ * What a pressure washer acts on, read from the record's own fields. Applies only to a pw member (lib/signals/pw-switch.ts isPwMember: the
+ * switch is on and the member holds House cleaning AND Siding and gutters, the sign-up "Pressure washing" chip). For that member these rules
+ * REPLACE the House cleaning and Siding and gutters labels on the record families pwDecides lists; any other trade the member holds keeps
+ * its own label, and the best of them wins as usual. Other families (bids, people asking, FEMA, quakes) keep the two trades' labels.
+ *
+ * Why (round 31 hand reads, gates/r31/EXPAND.md): the pw composite was almost all roof-only permits (New Orleans 0/10, Baton Rouge 0/10,
+ * Seattle 1/10, Los Angeles 2/10 actionable). A re-roof is a gutter job, not a wash.
+ *
+ *   permit, exterior work    painting, siding, deck, porch, fence or concrete in the title   coming_soon (exterior wash, deck or fence
+ *                            ($1,000 to $250,000, or no value stated)                        seal, driveway or patio clean and seal)
+ *                            the same outside that value range                               market_insight (a repair stub, or a job
+ *                                                                                             whose general contractor cleans up)
+ *   permit, tenant fit-out   a titled tenant fit-out up to $250,000                          coming_soon (a new storefront to wash)
+ *   permit, new home         at final inspection, finaled or with a certificate of occupancy coming_soon (move-in, first exterior wash)
+ *                            any earlier stage                                               market_insight (site work is months away)
+ *   permit, anything else    roof-only, roof with trade sub-permits, HVAC, remodels, ...     context (not shown to this member)
+ *   new-business licence     a storefront, restaurant or parking licence (storefrontKindOf)  coming_soon (storefront and lot cleaning)
+ *   code order or 311        graffiti on private property, or an order naming a dirty,       act_now (the owner has to clean it)
+ *                            mildewed or stained exterior, where the feed says so
+ *   storm report (SPC, LSR)  a tornado, or a wind report that names damage                   market_insight (debris clean-up may follow;
+ *                                                                                             damage is not confirmed and the copy never
+ *                                                                                             says it is; the reports name no property)
+ *   weather alert, events, inspections, other civic rows                                     context
+ * A permit whose structured type is a construction-site fence, a sidewalk shed, scaffolding, an address change, a foundation, a curb cut or
+ * civil plans is context whatever its title.
+ * Pollen season is the season table's job (lib/season/table.ts, allTrades = the two pw trades), not a record rule.
+ */
+export type PwKind = 'painting' | 'siding' | 'deck' | 'fence' | 'concrete' | 'fit-out' | 'new-home' | 'storefront' | 'graffiti' | 'exterior-order' | 'storm-debris' | 'severe-weather';
+
+/** Bounds of a pw heads-up on an exterior or fit-out permit (round 31 hand-read rule: jobs of $270k or more were not actionable). */
+export const PW_MIN_VALUE = 1_000;
+export const PW_MAX_VALUE = 250_000;
+
+/** Title labels (lib/signals/mapping/permit.ts) a pressure washer acts on, in the order the reason line prefers. */
+const PW_EXTERIOR_LABELS: ReadonlyArray<readonly [string, PwKind]> = [
+  ['painting', 'painting'],
+  ['siding', 'siding'],
+  ['deck', 'deck'],
+  ['porch', 'deck'],
+  ['fence', 'fence'],
+  ['concrete', 'concrete'],
+];
+
+/**
+ * What the record's own text must say for each exterior kind. Tested on the title labels and on summaryParts (the structured type, class
+ * and use; never the address part, and never a part that reads as a street name: "Balcones Dr", "Porcher Ave"). Whole words only, so
+ * "Fenchurch Building" is no fence. Round 35 review P2-4.
+ */
+const PW_EXTERIOR_PARTS: ReadonlyArray<readonly [RegExp, PwKind]> = [
+  [/\b(?:exterior|outside)\s+(?:paint|painting|repaint|repainting)\b|^painting$|^paint$|\bpaint permit\b|\brepaint(?:ing)?\b/i, 'painting'],
+  [/\bsiding\b/i, 'siding'],
+  [/\b(?:decks?|porch(?:es)?|balcon(?:y|ies))\b/i, 'deck'],
+  [/\bfenc(?:e|es|ing)\b/i, 'fence'],
+  [/\b(?:driveways?|patios?|walkways?|slabs?|flatwork|pavers?)\b/i, 'concrete'],
+];
+/** Words that cancel an exterior kind wherever they appear in the record's text (title and summary). */
+const PW_KIND_VETO: Readonly<Partial<Record<PwKind, RegExp>>> = {
+  painting: /\binterior\b/i,
+  deck: /\b(?:parking|roof|garage)\s+decks?\b|\bdeck(?:ing)?\s+(?:over|of)\s+(?:the\s+)?(?:parking|garage)\b/i,
+  fence: /\belectric\s+fenc\w*|\bfence\s+charger\b|\bsilt\s+fenc\w*|\btemporary\s+fenc\w*/i,
+  // Concrete is a heads-up only for a home's drive, patio, walk or slab: never a pool build, a public sidewalk, an obstruction, an addition
+  // or a commercial building (round 35 review P2-4: Charlotte "Pool and concrete | PoolSpa", Austin "Driveway / Sidewalks | New", Cambridge
+  // "Sidewalk Obstruction").
+  concrete: /\bpool\b|\bpoolspa\b|\bspa\b|\bsidewalks?\b|\bobstruction\b|\baddition\b|\bcommercial\b|\bindustrial\b|\boffice\b|\bwarehouse\b|\bretail\b|\(c\)/i,
+};
+/** Title labels that make a painting permit an interior job. */
+const PW_INDOOR_LABELS: readonly string[] = ['flooring', 'remodel', 'hvac', 'plumbing', 'electrical', 'water heater', 'addition'];
+/** A summary part that is a street name, not a type ("W Balcones Dr", "Porcher Ave"): skipped by the part test. */
+const STREET_PART_RE = /\b(?:st|street|ave|avenue|dr|drive|rd|road|blvd|boulevard|ln|lane|ct|court|way|pl|place|pkwy|parkway|cir|circle|trl|trail|hwy|highway|ter|terrace)\.?$/i;
+/** A tenant fit-out is a storefront only when the record says so (round 35 review: "Upfit", "New Tenant", "Tenant Improvement" alone are offices too). */
+const PW_STOREFRONT_WORD_RE = /\b(?:retail|store|storefront|shop|restaurant|cafe|café|salon|bakery|bar|boutique|eatery|deli|grocery|market)\b/i;
+
+/**
+ * Structured types that name no exterior a washer can clean: a construction-site fence, a sidewalk shed, scaffolding, an address change, a
+ * foundation, a curb cut, civil plans (round 35 hand read: New York foundations and curb cuts, a Washington stadium-site civil plan).
+ */
+const PW_NOT_EXTERIOR_PART_RE = /\bconstruction fence\b|\bsidewalk shed\b|\bscaffold\w*|\bchange of address\b|\bfoundation\b|\bcurb cut\b|\bcivil plans?\b/i;
+/** A code order whose own words name a dirty, mildewed or stained exterior, or ask for a power wash. */
+export const PW_EXTERIOR_ORDER_RE = /\b(?:mildew\w*|algae|moss)\b|\b(?:power|pressure)[\s-]?wash\w*|\bexterior\b.*\b(?:mold\w*|dirt|dirty|stain\w*|clean\w*)\b|\b(?:mold\w*|dirt|dirty|stain\w*|clean\w*)\b.*\bexterior\b/i;
+const PW_PRIVATE_GRAFFITI_RE = /graffiti.*private|private.*graffiti/i;
+const PW_CIVIC_SUBTYPES = ['violation', 'inspection', '311', 'event-permit', 'business'];
+
+/** The record families the pw rules decide. Every other record keeps the House cleaning and Siding and gutters labels. */
+export function pwDecides(sig: LabelInput): boolean {
+  const sub = norm(sig.subtype);
+  if (sub === 'permit' || norm(sig.kind) === 'permit') return true;
+  if (PW_CIVIC_SUBTYPES.includes(sub)) return true;
+  const src = norm(sig.source);
+  return src === 'nws' || (STORM_REPORT_SOURCES as readonly string[]).includes(src);
+}
+
+/** A storm report that names a tornado or wind damage (never hail alone, never a bare gust): debris may need washing off. */
+function pwStormDebris(sig: LabelInput): boolean {
+  const f = sig.storm;
+  if (f && (f.type === 'hail' || f.type === 'wind' || f.type === 'torn')) return f.type === 'torn' || (f.type === 'wind' && f.windDamage === true);
+  const event = titleBody(sig.title).split(/\s+near\s+/i)[0];
+  return /\b(?:damage|tornado)\b/i.test(event);
+}
+
+/** The structured parts the exterior test reads: summaryParts without parts that read as a street name. */
+const pwTypeParts = (sig: LabelInput) => summaryParts(sig.summary).filter((p) => !STREET_PART_RE.test(p.trim()));
+
+/**
+ * The exterior kind the record names, and whether its own structured type names it (a title label alone does not, when no value is printed).
+ * Title labels first (in PW_EXTERIOR_LABELS order), then the structured type. A vetoed kind is skipped.
+ */
+function pwExteriorOf(sig: LabelInput, f: PermitFacts): { kind: PwKind; typed: boolean } | null {
+  const text = `${sig.title ?? ''} | ${sig.summary ?? ''}`;
+  const parts = pwTypeParts(sig);
+  // Painting next to flooring, a remodel or an indoor trade is an interior job (round 35 fix read: New York "Window, flooring and painting").
+  const indoorPaint = (k: PwKind) => k === 'painting' && f.labels.some((l) => PW_INDOOR_LABELS.includes(l));
+  const ok = (k: PwKind) => !(PW_KIND_VETO[k]?.test(text)) && !(k === 'fence' && f.labels.includes('demolition')) && !indoorPaint(k);
+  const typedKind = (k: PwKind) => parts.some((p) => PW_EXTERIOR_PARTS.some(([re, kk]) => kk === k && re.test(p)));
+  for (const [l, k] of PW_EXTERIOR_LABELS) {
+    if (!f.labels.includes(l) || !ok(k)) continue;
+    // Concrete needs the drive, patio, walk or slab word in the record itself: the "Concrete" title label alone is any flatwork or footing.
+    if (k === 'concrete' && !typedKind('concrete')) continue;
+    return { kind: k, typed: typedKind(k) };
+  }
+  if (!f.labels.length) return null;
+  for (const [re, k] of PW_EXTERIOR_PARTS) if (ok(k) && parts.some((p) => re.test(p))) return { kind: k, typed: true };
+  return null;
+}
+
+/** The pw rule's label for one record and the kind that gave it (the reason line reads the kind). Context when nothing fits. */
+export function pwRuleOf(sig: LabelInput): { label: OpportunityLabel; kind: PwKind | null } {
+  const none = { label: 'context' as OpportunityLabel, kind: null };
+  const sub = norm(sig.subtype);
+  if (sub === 'permit' || norm(sig.kind) === 'permit') {
+    if (sumParts(sig.summary).some((p) => PW_NOT_EXTERIOR_PART_RE.test(p))) return none;
+    const f = permitFacts(sig);
+    const ext = pwExteriorOf(sig, f);
+    if (ext) {
+      // With a value: $1,000 to $250,000. With none: only when the record's own structured type names the exterior work (review P2-4).
+      const ok = f.value !== null ? f.value >= PW_MIN_VALUE && f.value <= PW_MAX_VALUE : ext.typed;
+      return { label: ok ? 'coming_soon' : 'market_insight', kind: ext.kind };
+    }
+    if (f.labels.includes('tenant fit-out')) {
+      const storefront = PW_STOREFRONT_WORD_RE.test(`${titleBody(sig.title)} | ${sig.summary ?? ''}`);
+      return { label: storefront && (f.value === null || f.value <= PW_MAX_VALUE) ? 'coming_soon' : 'market_insight', kind: 'fit-out' };
+    }
+    if (f.kinds.includes('new-build') && isNewBuildTitle(f)) {
+      const finished = typeof sig.permitStage === 'string' && FINISHED_STAGES.includes(sig.permitStage);
+      return { label: finished && !f.subPermit ? 'coming_soon' : 'market_insight', kind: 'new-home' };
+    }
+    return none;
+  }
+  if (sub === 'business') {
+    // A heads-up only through the licence hold: alert-gate.ts alertHoldFor holds every pw licence with no named business, whatever
+    // HOLLER_BUSINESS_TAG_FIX_ENABLED says (round 35 review P2-2).
+    const k = storefrontKindOf(sig);
+    return k === 'shop' || k === 'food' || k === 'parking' ? { label: 'coming_soon', kind: 'storefront' } : none;
+  }
+  if (sub === 'violation' || sub === '311') {
+    if (isClosedCase(sig)) return none;
+    const body = titleBody(sig.title);
+    // A heads-up, never act now (round 35 review P1-1: 94 San Francisco requests in 5.3 days would be 17.6 urgent a day). Volume is capped
+    // per member per day and per block per week (lib/signals/pw-caps.ts).
+    if (PW_PRIVATE_GRAFFITI_RE.test(body)) return { label: 'coming_soon', kind: 'graffiti' };
+    if (sub === 'violation' && PW_EXTERIOR_ORDER_RE.test(body)) return { label: 'act_now', kind: 'exterior-order' };
+    return none;
+  }
+  // Feed only: the round 35 hand read found the reports name city-wide downed trees, never a property a washer could contact.
+  if ((STORM_REPORT_SOURCES as readonly string[]).includes(norm(sig.source))) return pwStormDebris(sig) ? { label: 'market_insight', kind: 'storm-debris' } : none;
+  // A severe NWS alert (severity 3: a warning) stays in the pw member's feed, never as an alert (round 35 review P2-5).
+  if (norm(sig.source) === 'nws' && typeof sig.severity === 'number' && sig.severity >= 3 && !(locationGiven(sig) && cannotBeDelivered(sig))) return { label: 'market_insight', kind: 'severe-weather' };
+  return none;
+}
+
+/**
+ * The kind the reason line of a pw card names (lib/signals/brief.ts PW_WHY). The same as pwRuleOf's kind, except that a storm report shown
+ * under the pw trade is always the debris kind: a surface that builds the brief has no storm fields, and only a debris report reaches it.
+ */
+export function pwReasonKind(sig: LabelInput): PwKind | null {
+  const k = pwRuleOf(sig).kind;
+  if (k) return k;
+  if ((STORM_REPORT_SOURCES as readonly string[]).includes(norm(sig.source))) return 'storm-debris';
+  // Only a severe alert reaches a pw member (pwRuleOf), and a surface that builds the brief may not pass the severity.
+  return norm(sig.source) === 'nws' ? 'severe-weather' : null;
+}
+
+/**
+ * A pw member's label for a record pwDecides covers, and the trade the card is shown under: PW_TRADE ("pressure-washing") when the pw rule
+ * gives the best label, else the member's other trade that does. `shared` is the member's trades the record carries (labelForMember). A record
+ * that carries none of the member's trades and that the pw rule does not want is labelled as a keyword match, as before.
+ */
+export function pwMemberLabel(sig: LabelInput, shared: readonly string[]): { label: OpportunityLabel; trade: string | null } {
+  let label = pwRuleOf(sig).label;
+  let trade: string | null = PW_TRADE;
+  for (const t of shared) {
+    if (PW_PARTS.includes(t)) continue;
+    const l = labelFor(sig, t as CategoryId);
+    if (LABEL_RANK[l] < LABEL_RANK[label]) {
+      label = l;
+      trade = t;
+    }
+  }
+  if (label === 'context' && shared.length === 0) return { label: labelFor(sig, null), trade: null };
+  return { label, trade };
 }
 
 /** Stable sort: act_now first, then coming_soon, market_insight, context; inside a label the given order is kept. Does not mutate. */

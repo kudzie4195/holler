@@ -3,7 +3,8 @@ import { MAX_MATCHES_PER_USER, matchSignals, withoutWorkProfile, type MatchProfi
 import { contactGateOn, loadProfiles, markStoredContactPaths, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
-import { licenceGateApplies } from './alert-gate';
+import { licenceKeepsHold } from './alert-gate';
+import { loadPwHistory } from './pw-history';
 
 /** A signal that happened longer ago than this is matched quietly (notified = true): no email for old news, like the backfill. */
 export const REMATCH_QUIET_AFTER_MS = 3 * 86_400_000;
@@ -93,9 +94,11 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       for (const m of pairs) existing.add(`${m.user_id}\u0000${m.signal_id}`);
     }
 
+    // Round 35 (HOLLER_PW_RULES_ENABLED): the pressure-washing volume caps (no read while the switch is off or no pw member is loaded).
+    const pwHistory = await loadPwHistory(db, profiles, now);
     const rows: MatchInsertRow[] = [];
     // The new-business licences among these signals (switch on): only their rows keep "already handled" when alert_hold is not a column.
-    const licenceIds = new Set(signals.filter((s) => licenceGateApplies({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) })).map((s) => s.id));
+    const licenceIds = new Set(signals.filter((s) => licenceKeepsHold({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) })).map((s) => s.id));
     const nowIso = now.toISOString();
     const byId = new Map(signals.map((s) => [s.id, s]));
     for (const p of profiles) {
@@ -106,7 +109,7 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
         if (have.size) fresh = fresh.filter((s) => !have.has(alertKeyOf(s) ?? ''));
       }
       if (fresh.length === 0) continue;
-      for (const r of matchSignals(fresh, [p], MAX_MATCHES_PER_USER, now)) {
+      for (const r of matchSignals(fresh, [p], MAX_MATCHES_PER_USER, now, undefined, pwHistory)) {
         const s = byId.get(r.signal_id);
         const t = s ? Date.parse(s.occurred_at) : NaN;
         // A row the SAM backfill stored (data.backfill) is history whoever rematches it and whenever: the hourly AI step must never email one.
@@ -115,7 +118,7 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
         // Round 33 (review 3, P2-2): a feed-only NEW-BUSINESS LICENCE is stored as already handled (like the scan), switch on only: the email and
         // push runs never read it. Any other held card (a permit) and every card with the switch off is stored as before: handled only when quiet.
-        const handled = quiet || (!!r.alert_hold && !!s && licenceGateApplies({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
+        const handled = quiet || (!!r.alert_hold && !!s && licenceKeepsHold({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
         rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: handled, pushed_at: handled ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
     }

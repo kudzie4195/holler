@@ -114,8 +114,8 @@ const CASES: { name: InlinedSwitch; sig: typeof SAM_SIG | typeof BIZ_SIG; trade:
 ];
 
 describe('the switches the browser reads are inlined at build', () => {
-  it('lists exactly the two switches the audit found in the browser chunk, each an ENV_KEYS on/off switch and never a secret', () => {
-    expect([...INLINED_SWITCHES].sort()).toEqual(['HOLLER_BUSINESS_TAG_FIX_ENABLED', 'HOLLER_SAM_LABELS_ENABLED']);
+  it('lists exactly the switches the browser reads (round 34 audit, plus round 35 pw rules), each an ENV_KEYS on/off switch and never a secret', () => {
+    expect([...INLINED_SWITCHES].sort()).toEqual(['HOLLER_BUSINESS_TAG_FIX_ENABLED', 'HOLLER_PW_RULES_ENABLED', 'HOLLER_SAM_LABELS_ENABLED']);
     for (const name of INLINED_SWITCHES) {
       expect(ENV_KEYS as readonly string[]).toContain(name);
       expect(name).toMatch(/^HOLLER_[A-Z_]+_ENABLED$/);
@@ -124,10 +124,11 @@ describe('the switches the browser reads are inlined at build', () => {
   });
 
   it('inlines only "1" or "", never the raw text of the variable', () => {
-    expect(inlinedSwitchEnv({})).toEqual({ HOLLER_SAM_LABELS_ENABLED: '', HOLLER_BUSINESS_TAG_FIX_ENABLED: '' });
-    expect(inlinedSwitchEnv({ HOLLER_SAM_LABELS_ENABLED: ' Yes ', HOLLER_BUSINESS_TAG_FIX_ENABLED: 'sk_live_not_a_switch' })).toEqual({
+    expect(inlinedSwitchEnv({})).toEqual({ HOLLER_SAM_LABELS_ENABLED: '', HOLLER_BUSINESS_TAG_FIX_ENABLED: '', HOLLER_PW_RULES_ENABLED: '' });
+    expect(inlinedSwitchEnv({ HOLLER_SAM_LABELS_ENABLED: ' Yes ', HOLLER_BUSINESS_TAG_FIX_ENABLED: 'sk_live_not_a_switch', HOLLER_PW_RULES_ENABLED: 'on' })).toEqual({
       HOLLER_SAM_LABELS_ENABLED: '1',
       HOLLER_BUSINESS_TAG_FIX_ENABLED: '',
+      HOLLER_PW_RULES_ENABLED: '1',
     });
     for (const v of ['1', 'true', 'ON', ' yes ']) expect(switchOn(v)).toBe(true);
     for (const v of [undefined, null, '', '0', 'false', 'off', 'no', '2']) expect(switchOn(v)).toBe(false);
