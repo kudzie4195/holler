@@ -17,7 +17,6 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 
 import CheckPage from '@/app/check/page';
 import CheckPageEs from '@/app/es/check/page';
-import { CheckResults } from '@/components/check-results';
 import { coverageFor } from '@/lib/check/cells';
 import { isServedZip } from '@/lib/check/coverage';
 import { lookupZip } from '@/lib/geo';
@@ -69,7 +68,6 @@ const CASES: [string, string, string, string][] = [
   ['27601', 'siding-gutters', '2027-04-20T15:00:00Z', 'pollen-gutters-raleigh'],
   ['28202', 'siding-gutters', '2027-04-20T15:00:00Z', 'pollen-gutters-charlotte'],
   ['30303', 'siding-gutters', '2027-04-20T15:00:00Z', 'pollen-gutters-atlanta'],
-  ['78701', 'siding-gutters', '2027-04-20T15:00:00Z', 'pollen-gutters-austin'],
   ['27601', 'cleaning', '2027-03-31T15:00:00Z', 'pollen-cleaning-raleigh'],
   ['78701', 'cleaning', '2027-03-31T15:00:00Z', 'pollen-cleaning-austin'],
   ['78701', 'pressure-washing', '2027-04-10T15:00:00Z', 'pollen-wash-austin'],
@@ -80,24 +78,38 @@ const CASES: [string, string, string, string][] = [
 describe('/check and /es/check: the round 35 rows', () => {
   for (const [lang, page, dict] of [['en', CheckPage, en], ['es', CheckPageEs, es]] as const) {
     for (const [zip, trade, clock, id] of CASES) {
-      it(`${lang}: ${zip} ${trade} on ${clock.slice(0, 10)}: switch on shows ${id} with its public source; switch off shows no new line`, async () => {
-        const st = state(zip, trade);
-        if (st === 'waitlist') return; // the page never shows a season line on a waitlist answer (round 30); nothing to check
+      it(`${lang}: ${zip} ${trade} on ${clock.slice(0, 10)}: switch on shows ${id} with its public source (nothing on a waitlist cell); switch off shows no new line`, async () => {
+        const waitlist = state(zip, trade) === 'waitlist';
         vi.setSystemTime(new Date(clock));
         vi.stubEnv('HOLLER_SEASON_R35_ENABLED', '1');
         const on = await render(page, { zip, trade });
         const r = row(id);
-        expect(on, id).toContain(`data-season="${id}"`);
-        expect(on).toContain(esc(lang === 'en' ? r.en : r.es));
-        expect(on).toContain(`href="${r.source}"`);
-        expect(on).toContain(`>${dict['season.source']}<`);
+        if (waitlist) {
+          expect(on, `${id} waitlist, switch on`).not.toContain('data-season=');
+        } else {
+          expect(on, id).toContain(`data-season="${id}"`);
+          expect(on).toContain(esc(lang === 'en' ? r.en : r.es));
+          expect(on).toContain(`href="${r.source}"`);
+          expect(on).toContain(`>${dict['season.source']}<`);
+        }
         vi.stubEnv('HOLLER_SEASON_R35_ENABLED', '');
         const off = await render(page, { zip, trade });
         for (const rr of SEASON_TABLE_R35) expect(off, `${id} off, ${rr.id}`).not.toContain(`data-season="${rr.id}"`);
       });
     }
+    // review: the two new rows no /check page can show, with the switch on (Charlotte lawn care and house cleaning are waitlist cells)
+    for (const [zip, trade, clock] of [['28202', 'lawn-care', '2027-09-01T15:00:00Z'], ['28202', 'cleaning', '2027-03-31T15:00:00Z']] as const) {
+      it(`${lang}: ${zip} ${trade} is a waitlist page and shows no season line even with the switch on`, async () => {
+        expect(state(zip, trade)).toBe('waitlist');
+        vi.setSystemTime(new Date(clock));
+        vi.stubEnv('HOLLER_SEASON_R35_ENABLED', '1');
+        const html = await render(page, { zip, trade });
+        expect(html).not.toContain('data-season=');
+        expect(html).not.toContain(dict['season.h']);
+      });
+    }
   }
-  it('at least six of the nine cases are served (not waitlist), so the test above is not empty', () => {
+  it('at least six of the eight cases are served (not waitlist), so the test above is not empty', () => {
     expect(CASES.filter(([zip, trade]) => state(zip, trade) !== 'waitlist').length).toBeGreaterThanOrEqual(6);
   });
 });

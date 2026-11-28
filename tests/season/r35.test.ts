@@ -8,8 +8,10 @@ import { SEASON_TABLE, type SeasonRow } from '@/lib/season/table';
 import { SEASON_TABLE_R35 } from '@/lib/season/table-r35';
 import { activeSeasons, dayOfYear, inWindow, MAX_SEASON_LINES, seasonLines, seasonR35Enabled, seasonTable } from '@/lib/season/active';
 import { measuredCentres } from '@/lib/check/cells';
+import { CHECK_RADIUS_MI } from '@/lib/check/scope';
+import { expandTradeIds } from '@/lib/plan/composite-trades';
 import { CATEGORIES } from '@/lib/signals/categories';
-import { lookupZip } from '@/lib/geo';
+import { haversineMi, lookupZip } from '@/lib/geo';
 import { spanishProblems } from '@/lib/i18n/rules';
 
 const TRADE_IDS = new Set<string>(CATEGORIES.map((c) => c.id));
@@ -53,9 +55,12 @@ const withSwitch = (value: string | undefined) => {
 };
 afterEach(() => vi.unstubAllEnvs());
 
+/** The loop tests run about 90,000 activeSeasons calls each (1 to 2 s alone, several times that on a busy shared machine). */
+const LONG = 60_000;
+
 describe('round 35 rows: every row', () => {
-  it('is new: 13 rows, unique ids that are not in the round 30 table, a known topic, a measured centre', () => {
-    expect(SEASON_TABLE_R35).toHaveLength(13);
+  it('is new: 12 rows, unique ids that are not in the round 30 table, a known topic, a measured centre', () => {
+    expect(SEASON_TABLE_R35).toHaveLength(12);
     expect(R35_IDS.size).toBe(SEASON_TABLE_R35.length);
     const main = new Set(SEASON_TABLE.map((r) => r.id));
     for (const r of SEASON_TABLE_R35) {
@@ -140,10 +145,23 @@ describe('round 35 rows: every row', () => {
 
   it('a pest or pollen line says "can" or a typical word, never a fact about a property or a lawn', () => {
     for (const r of SEASON_TABLE_R35.filter((x) => x.topic === 'armyworm')) {
-      expect(r.en, r.id).toContain('The caterpillars can affect lawns.');
-      expect(r.es, r.id).toContain('Las orugas pueden afectar los céspedes.');
+      // review: no damage claim at all, not even a hedged one; the line is the source's timing and Holler's estimate
+      expect(r.en, r.id).not.toMatch(/\b(?:affect\w*|damag\w*|harm\w*|eat\w*|chew\w*|strip\w*|kill\w*|destroy\w*)\b/i);
+      expect(r.es, r.id).not.toMatch(/(?:afect|dañ|dano|destru|comen|mata)/i);
+      expect(r.en.split(/(?<=\.) /), r.id).toHaveLength(2);
       expect(r.en, r.id).not.toMatch(/\byour (?:lawn|yard|grass|home|house)\b/i);
       expect(r.es, r.id).not.toMatch(/\bsu (?:césped|jardín|casa|pasto)\b/i);
+    }
+    for (const r of SEASON_TABLE_R35.filter((x) => x.id.startsWith('pollen-gutters-'))) {
+      // timing only: nothing says pollen fills, clogs or blocks a gutter, and the Spanish says "limpiezas de canaletas en primavera"
+      expect(r.en, r.id).not.toMatch(/\b(?:clog\w*|fill\w*|block\w*|collect\w*|because|cause\w*|due to)\b/i);
+      expect(r.en, r.id).toContain('are typically booked after the peak, from mid-April to early May.');
+      expect(r.es, r.id).toContain('las limpiezas de canaletas en primavera se suelen programar después de ese punto máximo, de mediados de abril a principios de mayo.');
+    }
+    for (const r of SEASON_TABLE_R35.filter((x) => x.id.endsWith('-austin') && x.topic === 'pollen')) {
+      // the sentence the page says has no region in it (review P2-4)
+      expect(r.en, r.id).not.toMatch(/Central Texas/);
+      expect(r.es, r.id).not.toMatch(/centro de Texas/);
     }
     for (const r of SEASON_TABLE_R35.filter((x) => x.topic === 'pollen')) {
       expect(r.en, r.id).not.toMatch(/\byour\b/i);
@@ -151,20 +169,30 @@ describe('round 35 rows: every row', () => {
     }
   });
 
-  it('confidence, row by row (the table\'s rule, applied to the page each row cites)', () => {
-    const want: Record<string, 'checked' | 'estimate'> = {
-      // months or a named region stated by the source as usual timing
-      'armyworm-atlanta': 'checked', // UGA Circular 1335: "recurs each year from July to September", Georgia
-      'armyworm-charlotte': 'checked', // NC State: "generally ranges from late July through mid-October", North Carolina
-      'armyworm-raleigh': 'checked',
-      'pollen-wash-austin': 'checked', // AgriLife: oak pollen "typically ... in March and April", Central Texas
-      'pollen-cleaning-atlanta': 'checked', 'pollen-cleaning-charlotte': 'checked', 'pollen-cleaning-raleigh': 'checked', 'pollen-cleaning-austin': 'checked',
-      // a season word only, no month and no region in the sentence (Texas A&M blog)
-      'armyworm-austin': 'estimate',
-      // the clean-out after the pollen peak is Holler's own link: no page dates it
-      'pollen-gutters-atlanta': 'estimate', 'pollen-gutters-charlotte': 'estimate', 'pollen-gutters-raleigh': 'estimate', 'pollen-gutters-austin': 'estimate',
-    };
-    expect(Object.fromEntries(SEASON_TABLE_R35.map((r) => [r.id, r.confidence]))).toEqual(want);
+  // The table's confidence rule (lib/season/table.ts header), computed from facts about each row's page, not copied from the labels:
+  // 'checked' only when the page states the anchor as usual timing WITH months for the metro or a region it names, and the row's
+  // booking sentence is not built on a later event the page does not date (a clean-out "after the peak"); anything else is 'estimate'.
+  // Facts read from the pages on 2026-11-28: what each source states.
+  const SOURCE_FACTS: Record<string, { monthsAsUsualTiming: boolean }> = {
+    'https://fieldreport.caes.uga.edu/publications/C1335/': { monthsAsUsualTiming: true }, // "recurs each year from July to September" (Georgia)
+    'https://ncturfbugs.wordpress.ncsu.edu/2021/08/05/fall-armyworms-alert/': { monthsAsUsualTiming: true }, // "generally ranges from late July through mid-October" (NC)
+    'https://citybugs.tamu.edu/2021/08/30/be-on-the-lookout-for-armyworms/': { monthsAsUsualTiming: false }, // "late summer or early fall": a season word, no month
+    'https://www.fox5atlanta.com/news/georgia-pollen-count-explained-seasonal-allergies': { monthsAsUsualTiming: true }, // peaks late March and mid-April
+    'https://forestry.ces.ncsu.edu/news/pine-pollen-season': { monthsAsUsualTiming: true }, // "typically peaking between late March and early April" (NC)
+    'https://agrilifetoday.tamu.edu/2018/04/07/central-texans-getting-more-than-fair-share-of-oak-pollen/': { monthsAsUsualTiming: true }, // "typically ... March and April"
+  };
+  const ruleLabel = (r: SeasonRow): 'checked' | 'estimate' => {
+    const facts = SOURCE_FACTS[r.source];
+    if (!facts) throw new Error(`no facts recorded for ${r.source}`);
+    const builtOnLaterEvent = /\bafter the peak\b/.test(r.en);
+    return facts.monthsAsUsualTiming && !builtOnLaterEvent ? 'checked' : 'estimate';
+  };
+  it('confidence follows the rule, computed per row from what its source states', () => {
+    for (const r of SEASON_TABLE_R35) expect(r.confidence, r.id).toBe(ruleLabel(r));
+    // and the rule yields both labels here, so the test can fail either way
+    expect(new Set(SEASON_TABLE_R35.map(ruleLabel))).toEqual(new Set(['checked', 'estimate']));
+    expect(ruleLabel({ ...row('armyworm-atlanta'), en: 'x. Holler estimates that y are booked after the peak, z.' })).toBe('estimate');
+    expect(ruleLabel({ ...row('armyworm-austin') })).toBe('estimate');
   });
 
   it('each row reaches exactly the trades the brief gave it', () => {
@@ -184,7 +212,9 @@ describe('round 35 rows: every row', () => {
     for (const c of ['atlanta', 'charlotte', 'raleigh']) expect(w(`pollen-cleaning-${c}`)).toEqual(['03-15', '04-25']);
     expect(w('pollen-cleaning-austin')).toEqual(['03-01', '04-30']);
     expect(w('pollen-wash-austin')).toEqual(['03-01', '04-30']);
-    for (const c of ['atlanta', 'charlotte', 'raleigh', 'austin']) expect(w(`pollen-gutters-${c}`)).toEqual(['03-25', '05-10']);
+    // the gutter rows open with the booking window they state ("from mid-April"), after the sources' own peaks; none for Austin
+    for (const c of ['atlanta', 'charlotte', 'raleigh']) expect(w(`pollen-gutters-${c}`)).toEqual(['04-15', '05-10']);
+    expect(SEASON_TABLE_R35.some((r) => r.id === 'pollen-gutters-austin')).toBe(false);
   });
 });
 
@@ -194,10 +224,10 @@ describe('the switch', () => {
     for (const v of [undefined, '', '0', 'false', 'off', 'no', '2', 'enabled', '11']) expect(seasonR35Enabled(v), String(v)).toBe(false);
   });
 
-  it('off: the table is SEASON_TABLE itself; on: the same rows first, then the 13 new ones', () => {
+  it('off: the table is SEASON_TABLE itself; on: the same rows first, then the new ones', () => {
     expect(seasonTable(false)).toBe(SEASON_TABLE);
     const on = seasonTable(true);
-    expect(on).toHaveLength(SEASON_TABLE.length + 13);
+    expect(on).toHaveLength(SEASON_TABLE.length + SEASON_TABLE_R35.length);
     expect(on.slice(0, SEASON_TABLE.length)).toEqual([...SEASON_TABLE]);
     expect(on.slice(SEASON_TABLE.length)).toEqual([...SEASON_TABLE_R35]);
   });
@@ -208,7 +238,7 @@ describe('the switch', () => {
     expect(seasonTable()).toBe(SEASON_TABLE);
     vi.stubEnv('HOLLER_SEASON_R35_ENABLED', '1');
     expect(seasonR35Enabled()).toBe(true);
-    expect(seasonTable()).toHaveLength(SEASON_TABLE.length + 13);
+    expect(seasonTable()).toHaveLength(SEASON_TABLE.length + SEASON_TABLE_R35.length);
     vi.unstubAllEnvs();
     delete process.env.HOLLER_SEASON_R35_ENABLED;
     expect(seasonR35Enabled()).toBe(false);
@@ -241,25 +271,67 @@ const DAYS: string[] = (() => {
   return out;
 })();
 
+/**
+ * An independent copy of the round 30 selection rules, written here and sharing no code with lib/season/active.ts except the shared
+ * helpers it also uses for the place and the trades (centres, radius, distance, chip expansion). If activeSeasons changes behaviour with the
+ * switch off, the answer no longer equals this one. String dates only (the instants are covered by the time zone tests).
+ */
+function oracleActive(table: readonly SeasonRow[], lat: number, lon: number, tradeIds: readonly string[], date: string): string[] {
+  const trades = expandTradeIds(tradeIds);
+  if (trades.length === 0) return [];
+  const md = date.slice(5) === '02-29' ? '02-28' : date.slice(5);
+  const num = (d: string) => Math.round((Date.UTC(2025, Number(d.slice(0, 2)) - 1, Number(d.slice(3, 5))) - Date.UTC(2025, 0, 1)) / 86_400_000) + 1;
+  const inside = (s: string, e: string) => (s <= e ? md >= s && md <= e : md >= s || md <= e);
+  const hits: { row: SeasonRow; miles: number; far: number; order: number }[] = [];
+  table.forEach((r, order) => {
+    const c = CENTRE.get(r.centre)!;
+    const miles = haversineMi(lat, lon, c.lat, c.lon);
+    if (!(miles <= CHECK_RADIUS_MI)) return;
+    const all = r.allTrades ?? [];
+    const reached = r.trades.some((t) => trades.includes(t) && (all.every((a) => trades.includes(a)) || !all.includes(t)));
+    if (!reached || !inside(r.start, r.end)) return;
+    const gap = Math.abs(num(md) - num(r.peak!)) % 365;
+    hits.push({ row: r, miles, far: Math.min(gap, 365 - gap), order });
+  });
+  const byTopic = new Map<string, (typeof hits)[number]>();
+  for (const h of hits) {
+    const was = byTopic.get(h.row.topic);
+    if (!was || h.miles < was.miles) byTopic.set(h.row.topic, h);
+  }
+  return [...byTopic.values()].sort((a, b) => a.far - b.far || a.order - b.order).map((h) => h.row.id).slice(0, 2);
+}
+
 describe('switch off = main', () => {
+  it('every round 30 row has a peak, so the oracle below needs no midpoint rule', () => {
+    for (const r of SEASON_TABLE) expect(r.peak, r.id).toBeTruthy();
+  });
   for (const v of [undefined, '', '0', 'false', 'off']) {
-    it(`HOLLER_SEASON_R35_ENABLED=${JSON.stringify(v)}: activeSeasons equals the round 30 table's answer for every place, trade set and day, and never returns a new row`, () => {
+    it(`HOLLER_SEASON_R35_ENABLED=${JSON.stringify(v)}: activeSeasons gives the answer of an independent copy of the round 30 rules over SEASON_TABLE, for every place, trade set and day, and never a new row`, () => {
       withSwitch(v);
       let compared = 0;
       for (const { name, p } of PLACES) {
         for (const trades of TRADE_SETS) {
           for (const date of DAYS) {
             const got = activeSeasons({ lat: p.lat, lon: p.lon, trades, date });
-            const main = activeSeasons({ lat: p.lat, lon: p.lon, trades, date, table: SEASON_TABLE });
-            expect(got, `${name} ${trades.join('+')} ${date}`).toEqual(main);
+            expect(ids(got), `${name} ${trades.join('+')} ${date}`).toEqual(oracleActive(SEASON_TABLE, p.lat, p.lon, trades, date));
             for (const r of got) expect(R35_IDS.has(r.id), r.id).toBe(false);
             compared++;
           }
         }
       }
       expect(compared).toBe(PLACES.length * TRADE_SETS.length * DAYS.length);
-    });
+    }, LONG);
   }
+  it('the oracle can fail: with the switch on, it disagrees with activeSeasons on some day (so a wrong table would be seen)', () => {
+    withSwitch('1');
+    let differs = 0;
+    for (const { p } of PLACES) for (const date of DAYS) if (ids(activeSeasons({ lat: p.lat, lon: p.lon, trades: ['lawn-care', 'cleaning', 'siding-gutters'], date })).join() !== oracleActive(SEASON_TABLE, p.lat, p.lon, ['lawn-care', 'cleaning', 'siding-gutters'], date).join()) differs++;
+    expect(differs).toBeGreaterThan(0);
+  });
+  it('the table is main\'s SEASON_TABLE object itself while the switch is off', () => {
+    withSwitch(undefined);
+    expect(seasonTable()).toBe(SEASON_TABLE);
+  });
 
   it('the lines /check prints (seasonLines, EN and ES) are the same objects of text as main, with the switch off', () => {
     withSwitch(undefined);
@@ -313,12 +385,21 @@ describe('switch on: who gets which new line', () => {
     expect(has('78701', 'armyworm-austin', '2027-10-16')).toBe(false);
   });
 
-  it('spring pollen: house cleaning gets the cleaning line, gutters the gutter line, in all four metros', () => {
+  it('spring pollen: house cleaning gets the cleaning line in all four metros, gutters the gutter line in the three that have one', () => {
     withSwitch('1');
     for (const [zip, c, date] of [['30303', 'atlanta', '2027-03-31'], ['28202', 'charlotte', '2027-03-31'], ['27601', 'raleigh', '2027-03-31'], ['78701', 'austin', '2027-03-31']]) {
       expect(at(zip, ['cleaning'], date), `${c} cleaning`).toEqual([`pollen-cleaning-${c}`]);
-      expect(at(zip, ['siding-gutters'], '2027-04-20'), `${c} gutters`).toEqual([`pollen-gutters-${c}`]);
+      if (c !== 'austin') expect(at(zip, ['siding-gutters'], '2027-04-20'), `${c} gutters`).toEqual([`pollen-gutters-${c}`]);
     }
+    // gutters: nothing before the booking window the line states (Apr 15), nothing in Austin
+    for (const [zip, c] of [['30303', 'atlanta'], ['28202', 'charlotte'], ['27601', 'raleigh']]) {
+      expect(at(zip, ['siding-gutters'], '2027-04-14'), `${c} Apr 14`).not.toContain(`pollen-gutters-${c}`);
+      expect(at(zip, ['siding-gutters'], '2027-03-31'), `${c} Mar 31`).toEqual([]);
+      expect(at(zip, ['siding-gutters'], '2027-04-15'), `${c} Apr 15`).toContain(`pollen-gutters-${c}`);
+      expect(at(zip, ['siding-gutters'], '2027-05-10'), `${c} May 10`).toContain(`pollen-gutters-${c}`);
+      expect(at(zip, ['siding-gutters'], '2027-05-11'), `${c} May 11`).not.toContain(`pollen-gutters-${c}`);
+    }
+    expect(at('78701', ['siding-gutters'], '2027-04-20')).toEqual([]);
   });
 
   it('a pressure washer (both parts of the chip) gets the one pollen line: the round 30 wash line in Atlanta, Charlotte and Raleigh, the new wash line in Austin', () => {
@@ -348,7 +429,7 @@ describe('switch on: who gets which new line', () => {
         }
       }
     }
-  });
+  }, LONG);
 
   it('a pressure washer in Atlanta on Mar 31 gets exactly the same lines with the switch on as with it off', () => {
     withSwitch('1');
@@ -390,7 +471,7 @@ describe('at most two lines, every place, trade set and day, with the rows on', 
       }
     }
     expect(over).toBe(0);
-  });
+  }, LONG);
 
   it('the busiest day: Austin, a member with every trade, Mar 20 has two lines and the nearer-to-peak ones win', () => {
     withSwitch('1');
@@ -423,15 +504,14 @@ describe('time zones: a Date is read in the metro\'s own calendar', () => {
     expect(on(clt, ['lawn-care'], new Date('2027-10-16T04:00:00Z'))).not.toContain('armyworm-charlotte');
   });
 
-  it('Austin spring pollen opens Mar 1 00:00 Central (CST, UTC-6) and gutters open Mar 25 (CDT after Mar 14 2027)', () => {
+  it('Austin spring pollen opens Mar 1 00:00 Central (CST, UTC-6); Charlotte gutters open Apr 15 00:00 Eastern (EDT)', () => {
     withSwitch('1');
     expect(on(aus, ['cleaning'], new Date('2027-03-01T05:59:00Z'))).not.toContain('pollen-cleaning-austin');
     expect(on(aus, ['cleaning'], new Date('2027-03-01T06:00:00Z'))).toContain('pollen-cleaning-austin');
-    expect(on(aus, ['siding-gutters'], new Date('2027-03-25T04:59:00Z'))).not.toContain('pollen-gutters-austin');
-    expect(on(aus, ['siding-gutters'], new Date('2027-03-25T05:00:00Z'))).toContain('pollen-gutters-austin');
-    // the same instant is already Mar 25 in Charlotte (EDT): the gutter line is there too
-    expect(on(clt, ['siding-gutters'], new Date('2027-03-25T04:00:00Z'))).toContain('pollen-gutters-charlotte');
-    expect(on(clt, ['siding-gutters'], new Date('2027-03-25T03:59:00Z'))).not.toContain('pollen-gutters-charlotte');
+    expect(on(clt, ['siding-gutters'], new Date('2027-04-15T04:00:00Z'))).toContain('pollen-gutters-charlotte');
+    expect(on(clt, ['siding-gutters'], new Date('2027-04-15T03:59:00Z'))).not.toContain('pollen-gutters-charlotte');
+    // the same instant is still Apr 14 in Austin at 04:59Z (CDT), but Austin has no gutter row anyway
+    expect(on(aus, ['siding-gutters'], new Date('2027-04-15T05:00:00Z'))).toEqual([]);
   });
 });
 
@@ -449,7 +529,7 @@ describe('the New Year wrap is untouched by the new rows', () => {
         }
       }
     }
-  });
+  }, LONG);
   it('Austin cedar (Dec 15 to Mar 1, a wrap) still runs for a pressure washer, and hands over to the new wash line on Mar 2', () => {
     withSwitch('1');
     const p = lookupZip('78701')!;
