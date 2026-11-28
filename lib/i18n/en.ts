@@ -188,6 +188,19 @@ export const en = {
   'brief.work.business-services': 'bookkeeping or IT help',
   'brief.work.public-adjuster': 'insurance claim help',
   'brief.work.generic': 'work you do',
+  // Round 35 (HOLLER_PW_RULES_ENABLED): the composite pressure-washing trade and its card reason lines (lib/signals/brief.ts PW_WHY).
+  'brief.work.pressure-washing': 'pressure washing work',
+  'brief.pw.painting': 'A painting permit was filed nearby; walls are often washed before paint.',
+  'brief.pw.siding': 'A siding permit was filed nearby; new or repaired siding may need a wash.',
+  'brief.pw.deck': 'A deck or porch permit was filed nearby; new wood is often cleaned and sealed.',
+  'brief.pw.fence': 'A fence permit was filed nearby; new fences are often washed and sealed.',
+  'brief.pw.concrete': 'A concrete permit was filed nearby; new drives and patios may need sealing.',
+  'brief.pw.fit-out': 'A tenant fit-out permit was filed nearby; a new storefront may need a wash.',
+  'brief.pw.new-home': 'A new home nearby reached its final stage; a first exterior wash may follow.',
+  'brief.pw.storefront': 'A new business license was filed nearby; storefronts often need washing.',
+  'brief.pw.graffiti': 'Graffiti on private property was reported nearby; the owner pays to remove it.',
+  'brief.pw.exterior-order': 'A city order nearby names an exterior that needs cleaning.',
+  'brief.pw.storm-debris': 'A storm report was filed nearby; any debris may need washing off.',
 
   // why it matters: one sentence per (family, label)
   'brief.why.weather-alert.coming_soon': 'A weather alert was issued for your area; {work} may follow.',
@@ -1311,6 +1324,7 @@ export const en = {
   'chk.trade.cleaning': 'House cleaning and pressure washing',
   'pf.trade.pressure_washing': 'Pressure washing',
   'pf.trade.pressure_washing_hint': 'Counts as two trades: house cleaning, and siding and gutters. That is where pressure washing work shows up, in new-home and roof permits.',
+  'pf.trade.pressure_washing_hint_pw': 'Counts as two trades: house cleaning, and siding and gutters. The alerts come from painting, siding, deck, fence and concrete permits, from new storefronts, and from new homes once they are finished. Roof-only permits are out.',
   'pf.more_trades': 'More trades',
   'pf.more_trades_hint': 'Holler has records for these too, but fewer of them in the cities it covers today.',
   'lists.title': 'Address lists',

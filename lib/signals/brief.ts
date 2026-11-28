@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
-import { formatRecordDate, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { formatRecordDate, labelFor, pwDecides, pwMemberLabel, pwReasonKind, ruleFor, type LabelInput, type OpportunityLabel, type PwKind } from './lead-rules';
+import { isPwMember, PW_TRADE } from './pw-switch';
 import { isPaperworkOrder, roadWordsEnabled, treeOnRoad, windDamageFactsOf } from './carry';
 import { bidSourceLinkLabel } from './bid-card';
 import { ERATE_SOURCE_ID } from './bid-sources';
@@ -213,7 +214,42 @@ export const TRADE_WORK: Record<CategoryId, string> = {
 
 export const GENERIC_WORK = 'work you do';
 
+/** Round 35: what the composite "Pressure washing" trade does (a card is shown under it only with HOLLER_PW_RULES_ENABLED on). */
+export const PW_WORK = 'pressure washing work';
+
+/**
+ * Round 35 (HOLLER_PW_RULES_ENABLED): the reason line of a card shown under the pressure-washing trade, one per rule kind
+ * (lib/signals/lead-rules.ts pwRuleOf). Each says what the record is and what may follow; none says a hire happened or that damage is
+ * confirmed. At most MAX_WHY characters (tests/signals/pw-rules.test.ts). Spanish: brief.pw.<kind> in lib/i18n/es.ts.
+ */
+export const PW_WHY: Readonly<Record<PwKind, string>> = {
+  painting: 'A painting permit was filed nearby; walls are often washed before paint.',
+  siding: 'A siding permit was filed nearby; new or repaired siding may need a wash.',
+  deck: 'A deck or porch permit was filed nearby; new wood is often cleaned and sealed.',
+  fence: 'A fence permit was filed nearby; new fences are often washed and sealed.',
+  concrete: 'A concrete permit was filed nearby; new drives and patios may need sealing.',
+  'fit-out': 'A tenant fit-out permit was filed nearby; a new storefront may need a wash.',
+  'new-home': 'A new home nearby reached its final stage; a first exterior wash may follow.',
+  storefront: 'A new business license was filed nearby; storefronts often need washing.',
+  graffiti: 'Graffiti on private property was reported nearby; the owner pays to remove it.',
+  'exterior-order': 'A city order nearby names an exterior that needs cleaning.',
+  'storm-debris': 'A storm report was filed nearby; any debris may need washing off.',
+};
+
+/**
+ * The pw reason line for this record and label, or null. Only for a card shown under the pw trade: an alert, or the storm-debris feed card
+ * (its sentence says only that a report was filed). A feed-only permit (a new home before its final stage, a job outside the value range)
+ * keeps the generic market-insight sentence, so a sentence never says more than the record does.
+ */
+export function pwWhyKind(input: BriefInput, label: string, trade: string | null | undefined): PwKind | null {
+  if (trade !== PW_TRADE) return null;
+  const kind = pwReasonKind({ source: input.source, kind: input.kind ?? null, subtype: input.subtype ?? null, title: input.title ?? null, summary: input.summary ?? null });
+  if (label === 'coming_soon' || label === 'act_now') return kind;
+  return label === 'market_insight' && kind === 'storm-debris' ? kind : null;
+}
+
 export function workFor(trade: string | null | undefined): string {
+  if (trade === PW_TRADE) return PW_WORK;
   return (trade && (TRADE_WORK as Record<string, string | undefined>)[trade]) || GENERIC_WORK;
 }
 
@@ -712,7 +748,8 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   };
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
-  const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
+  const pwKind = pwWhyKind(input, label, trade);
+  const routed = pwKind ? PW_WHY[pwKind] : family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
   const interiorDemo = !routed && isInteriorDemolitionCard(label, family, trade, input.title) ? interiorDemolitionWhy(ctx.permitType) : null;
   const reason = reasonCopyFor(input);
   const reasonWhy = reason?.copy.why ? fillReason(reason.copy.why, workFor(trade), ctx.permitType) : null;
@@ -975,6 +1012,8 @@ export function tradeForRecord(
   let best: string | null = null;
   let bestRank = Infinity;
   const carried = carriedTrades(sig, recordCategories);
+  // Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member's card is shown under "pressure-washing" when the pw rules decide it.
+  if (isPwMember(memberTrades) && pwDecides(sig)) return pwMemberLabel(sig, memberTrades.filter((t) => carried.includes(t))).trade;
   for (const t of memberTrades) {
     if (!carried.includes(t)) continue;
     const r = rank[labelFor(sig, t as CategoryId)];

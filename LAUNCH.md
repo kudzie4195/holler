@@ -139,6 +139,15 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    Iowa Environmental Mesonet LSR GeoJSON for seven NWS offices (Atlanta, Austin, Charlotte, Raleigh, New York, Chicago, Los Angeles),
    storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
    never stored. Turn on after one look at a scan's `lsr` row in the health email.
+   NEEDS KUDZI (round 35 pressure washing): `HOLLER_PW_RULES_ENABLED` stays empty at the deploy; off, every label and every card line is exactly
+   as before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1). On, a member holding BOTH House cleaning and Siding and gutters (the
+   "Pressure washing" chip) stops getting roof-only permits and gets painting, siding, deck, porch, fence and concrete permits ($1,000 to
+   $250,000, or no value stated), titled tenant fit-outs up to $250,000, new homes only once they reach final inspection, storefront licences
+   (held for the feed when no business is named, as every licence is) and graffiti on private property. The card's reason line says what a
+   washer acts on (EN and ES), never "roof". Members with one of the two trades never change. Inlined at build: redeploy after a change.
+   Measured on the 14-day export (gates/r35/r35-pw-composite/REPORT.md): emailed per metro moves from 15-74 roof and new-home cards to 5-57
+   exterior cards (San Francisco 133 with private graffiti), and the hand-read actionable share goes from 0-2 in 10 to 6-10 in 10. Before
+   turning it on, decide the cells the report lists (Atlanta, New York, Seattle, Cincinnati would read limited, not live).
    NEEDS KUDZI (round 34 road words): `HOLLER_ROAD_WORDS_ENABLED` stays empty at the deploy; off, every label and every card line is exactly as
    before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1); the one stored difference is the LSR summary line below, and LSR is off. On:
    in a wind damage report (SPC, and LSR when it is on) a tree tied to a road by freeway, fwy, lanes, ramp, Blvd, boulevard, St, street, Rd, Ave,
@@ -697,8 +706,8 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
 - [ ] Know this (round 34 switch audit): every switch listed in next.config.ts `env` is baked in at build time too, as "1" or empty, never
-  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED` and
-  `HOLLER_BUSINESS_TAG_FIX_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
+  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED`,
+  `HOLLER_BUSINESS_TAG_FIX_ENABLED` and (round 35) `HOLLER_PW_RULES_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
   one, redeploy. An instant rollback serves that deployment's own value; promoting a Preview deployment rebuilds it with the Production
   variables. `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`: the build FAILS if a browser
   chunk reads any server variable at runtime (any env read except `NODE_ENV` and `NEXT_PUBLIC_*`, listed in `lib/env.ts` or not). So a

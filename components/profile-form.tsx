@@ -12,6 +12,7 @@ import { KEYWORD_MAX_LENGTH, KEYWORD_MIN_LENGTH, PLAN_LIMITS, type Tier } from '
 import { COMING_SOON_GROUP_KEY, groupCategories, MARKETED_GROUP_KEY, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
 import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
+import { pwRulesEnabled } from '@/lib/signals/pw-switch';
 import { planNameEs } from '@/lib/plan/price-copy-es';
 import type { ProfileCoverage } from '@/lib/check/profile-coverage';
 import { profileCoverageAction } from '@/lib/check/profile-coverage-action';
@@ -168,10 +169,16 @@ export function ProfileForm({
         </div>
         {g.items.some((c) => c.id === PRESSURE_WASHING_ID) ? (
           <p id="pf-pw-hint" className="mt-2 text-sm text-muted">
-            {w(
-              'pf.trade.pressure_washing_hint',
-              'Counts as two trades: house cleaning, and siding and gutters. That is where pressure washing work shows up, in new-home and roof permits.',
-            )}
+            {/* Round 35: with HOLLER_PW_RULES_ENABLED on (inlined at build, lib/build-switches.ts) the hint names what the pw rules send. */}
+            {pwRulesEnabled()
+              ? w(
+                  'pf.trade.pressure_washing_hint_pw',
+                  'Counts as two trades: house cleaning, and siding and gutters. The alerts come from painting, siding, deck, fence and concrete permits, from new storefronts, and from new homes once they are finished. Roof-only permits are out.',
+                )
+              : w(
+                  'pf.trade.pressure_washing_hint',
+                  'Counts as two trades: house cleaning, and siding and gutters. That is where pressure washing work shows up, in new-home and roof permits.',
+                )}
           </p>
         ) : null}
       </div>

@@ -1,7 +1,8 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
-import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, pwDecides, pwMemberLabel, pwRuleOf, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { isPwMember, PW_TRADE } from './pw-switch';
 import { stormFactsOf } from './wind-damage';
 import { weatherFactsOf } from './weather-hazard';
 import { bidsEnabled, erateHidden, isBidSignal } from './bid-sources';
@@ -166,6 +167,8 @@ function seenBy(signal: MatchSignal): readonly string[] {
 function labelInScope(signal: MatchSignal, cats: readonly string[], scope: MatchScope): { label: OpportunityLabel; trade: string | null } {
   const input = labelInputOf(signal);
   const shared = cats.filter((c) => scope.categories.includes(c));
+  // Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member's record is labelled by the pw rules (lead-rules.ts pwMemberLabel).
+  if (isPwMember(scope.categories) && pwDecides(input)) return pwMemberLabel(input, shared);
   if (shared.length === 0) return { label: labelFor(input, null), trade: null };
   let label: OpportunityLabel = 'context';
   let trade: string | null = null;
@@ -289,6 +292,16 @@ function tradeMatch(cats: readonly string[], scope: MatchScope): boolean {
 }
 
 /**
+ * Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member also sees a record that carries none of their trades when the pw rules want
+ * it (a painting, fence or deck permit, a storefront licence, a wind damage report). Off, or for any other member, always false.
+ */
+function pwSees(signal: MatchSignal, scope: MatchScope): boolean {
+  if (!isPwMember(scope.categories)) return false;
+  const input = labelInputOf(signal);
+  return pwDecides(input) && pwRuleOf(input).label !== 'context';
+}
+
+/**
  * A record stored as the same project as an earlier record (data.projectOf = "source:external id" of that record, written at insert by
  * lib/signals/projects.ts) never makes a card of its own: the earlier record is the project's card. Read by every matching path (scan,
  * onboarding and settings backfill, rematch), so a second listing of one project cannot reach a member as a second card.
@@ -304,7 +317,7 @@ function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchSc
   const where = areaMatch(signal, profile, scope, bidsOn);
   if (!where) return null;
   const cats = seenBy(signal);
-  if (!tradeMatch(cats, scope)) {
+  if (!tradeMatch(cats, scope) && !pwSees(signal, scope)) {
     if (scope.phrases.length === 0) return null;
     if (phraseIndex(searchText(signal), scope.phrases) < 0) return null;
   }
@@ -411,6 +424,7 @@ export function matchSignals(
   const gates: (GateInput | undefined)[] = new Array(n);
   for (const p of profiles) {
     const scope = matchScope(p); // once per profile, not once per record
+    const pwOn = isPwMember(scope.categories);
     const work = workOfProfile(p);
     const slots: (Uint8Array | undefined)[] = new Array(scope.phrases.length);
     const hits: Hit[] = [];
@@ -421,7 +435,7 @@ export function matchSignals(
       const where = areaMatch(s, p, scope, bidsOn);
       if (!where) continue;
       const cats = (seen[i] ??= seenBy(s));
-      if (!tradeMatch(cats, scope)) {
+      if (!tradeMatch(cats, scope) && !(pwOn && pwSees(s, scope))) {
         let found = false;
         for (let j = 0; j < scope.phrases.length && !found; j++) {
           let arr = slots[j];
@@ -452,6 +466,7 @@ export function matchSignals(
       if (!isFeedLabel(label)) continue;
       if (work && workTypeFilters(s, trade, gate, work)) continue;
       const mine = cats.filter((c) => scope.categories.includes(c));
+      if (trade === PW_TRADE) mine.push(PW_TRADE); // round 35: pw members compete with each other for a pw card
       for (const t of mine) members.set(`${i}\u0000${t}`, (members.get(`${i}\u0000${t}`) ?? 0) + 1);
       const hold = alertHoldFor(gate, label, trade, work);
       hits.push({ s, distance_mi: where.distance_mi, label, trade, ...(hold ? { hold } : {}) });
