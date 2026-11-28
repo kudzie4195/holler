@@ -148,7 +148,7 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_OWNER_USER_ID: process.env.HOLLER_OWNER_USER_ID,
   // Round 34: more road words (freeway, lanes, ramp, Blvd, St, Rd, Ave, I-5 ...) in the wind damage rule and the LSR adapter (lib/signals/carry.ts roadWordsEnabled). Read again at call time there.
   HOLLER_ROAD_WORDS_ENABLED: process.env.HOLLER_ROAD_WORDS_ENABLED,
-  // Round 35: follow-up emails (lifecycle welcome, trial-ending, recap; the outcome follow-up) apply the feed's bid switches, the owner's bid retirement and the alert hold (lib/signals/followup-filter.ts). Read at call time there. Off unless 1, true, on or yes.
+  // Round 35: follow-up emails (lifecycle welcome, trial-ending, trial-ended; the outcome follow-up) apply the feed's bid switches, the owner's bid retirement and the alert hold (lib/signals/followup-filter.ts). Read at call time there. Off unless 1, true, on or yes.
   HOLLER_FOLLOWUP_FILTER_ENABLED: process.env.HOLLER_FOLLOWUP_FILTER_ENABLED,
 };
 

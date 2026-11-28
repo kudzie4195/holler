@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FakeDb } from '../ops/fakedb';
 import { createStore, type FullProfile } from '@/lib/lifecycle/store';
+import { missedSince } from '@/lib/lifecycle/missed';
 import { buildMail, runLifecycle } from '@/lib/lifecycle/run';
 import { runMoat } from '@/lib/moat/run';
 import { FOLLOWUP_FILTER_FLAG, FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled } from '@/lib/signals/followup-filter';
@@ -115,28 +116,32 @@ describe('switch ON: lifecycle lists (welcome, trial-ending, recap)', () => {
     setSwitches({ filter: '1', bids: '' });
     const r = await createStore(world() as never).matchesOf(U, TRADES);
     expect(ids(r)).toEqual([1]);
-    expect(r.total).toBe(1);
-    // 2, 3, 4 are bids (bid switch off), 5 is retired (reported first), 6 and 7 are held.
-    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 3, held: 2 });
+    // The two feed-only matches (6, 7) are not listed as alerts but are still matches: they count.
+    expect(r.total).toBe(3);
+    expect(r.feedOnly).toBe(2);
+    // 2, 3, 4 are bids (bid switch off), 5 is retired (reported first).
+    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 3 });
   });
   it('bids on, E-Rate empty: only the E-Rate row, the closed bid, the retired bid and the held matches go', async () => {
     setSwitches({ filter: '1', bids: '1', erate: '' });
     const r = await createStore(world() as never).matchesOf(U, TRADES);
     expect(ids(r)).toEqual([1, 2]);
-    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 2, held: 2 });
+    expect(r.total).toBe(4);
+    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 2 });
   });
   it('bids on and E-Rate on: the E-Rate row stays; the closed, retired and held ones still go', async () => {
     setSwitches({ filter: '1', bids: '1', erate: '1' });
     const r = await createStore(world() as never).matchesOf(U, TRADES);
     expect(ids(r)).toEqual([1, 2, 3]);
-    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 1, held: 2 });
+    expect(r.total).toBe(5);
+    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 1 });
   });
   it('a retired hand-added bid is dropped even when its due date is still in the future (data.retiredAt alone)', async () => {
     setSwitches({ filter: '1', bids: '1', erate: '1' });
     const db = new FakeDb({ holler_matches: [match(5, bid(5, 'bids-manual', { retiredAt: PAST, expires_at: FUTURE })), match(8, bid(8, 'bids-manual', { retiredAt: null, expires_at: FUTURE, title: 'Open bid in Atlanta: Live manual bid 8' }))] });
     const r = await createStore(db as never).matchesOf(U, TRADES);
     expect(ids(r)).toEqual([8]);
-    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 0, held: 0 });
+    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 0 });
   });
   it('the select adds only the bid columns and alert_hold; a database before 0027 is read again without alert_hold (bids still filtered, held not)', async () => {
     setSwitches({ filter: '1', bids: '1', erate: '1' });
@@ -170,7 +175,8 @@ describe('switch ON: lifecycle lists (welcome, trial-ending, recap)', () => {
     expect(selects[1]).not.toContain('alert_hold');
     expect(selects[1]).toContain(FOLLOWUP_SIGNAL_SELECT);
     expect(ids(r)).toEqual([1, 2, 3, 6, 7]);
-    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 1, held: 0 });
+    expect(r.dropped).toEqual({ retired: 1, bid_hidden: 1 });
+    expect(r.feedOnly).toBe(0);
   });
   it('any other read error still throws', async () => {
     setSwitches({ filter: '1' });
@@ -219,12 +225,176 @@ describe('the emails, English and Spanish', () => {
       }
     }
   }
-  it('a welcome that has nothing left after the filter falls back to the quiet email (no records named)', async () => {
+  it('a welcome whose only matches are bids the feed hides does not name them (quiet email, no stub)', async () => {
     setSwitches({ filter: '1', bids: '' });
-    const db = new FakeDb({ holler_matches: [match(2, bid(2, 'bids-sf')), match(6, sig(6), { alert_hold: 'held' })] });
-    const store = { ...createStore(db as never), quietPreview: async () => null };
-    const m = await buildMail('welcome', prof, { store, siteUrl: 'https://localholler.com', secret: 'test-secret' }, NOW);
-    expect(m).toBeNull();
+    const db = new FakeDb({ holler_matches: [match(2, bid(2, 'bids-sf')), match(5, bid(5, 'bids-manual', { retiredAt: PAST }))] });
+    const m = await buildMail('welcome', prof, { store: createStore(db as never), siteUrl: 'https://localholler.com', secret: 'test-secret' }, NOW);
+    expect((m?.html ?? '') + (m?.text ?? '')).not.toMatch(/Zebra|Retired tree/);
+  });
+});
+
+// ---- P1-1: feed-only matches are still matches ------------------------------------------------------------------------------------
+const permit = (id: number, over: Record<string, unknown> = {}) => ({
+  id, source: 'arcgis-dekalb-permits', kind: 'permit', subtype: 'permit', title: `New home permit in DeKalb County ${id}`, summary: 'New Construction | Single Family Dwelling | Issued',
+  city: 'Decatur', state: 'GA', severity: 1, categories: ['general-contractor'], occurred_at: `2026-11-${10 + id}T00:00:00Z`, ...over,
+});
+const gcProf: FullProfile = {
+  user_id: U, business_name: 'Acme Builders', created_at: '2026-11-27T00:00:00Z', email_verified_at: '2026-11-27T01:00:00Z', subscription_status: 'trialing',
+  trial_ends_at: '2026-12-03T00:00:00Z', stripe_subscription_id: null, categories: ['general-contractor'], lat: 33.7, lon: -84.4, state: 'GA', radius_mi: 25,
+};
+const onlyHeld = () => new FakeDb({
+  holler_matches: [
+    match(1, permit(1), { alert_hold: 'background' }),
+    match(2, permit(2), { alert_hold: 'below_min' }),
+    match(3, permit(3), { alert_hold: 'held' }),
+  ],
+});
+const mailFor = async (db: FakeDb, kind: 'welcome' | 'trial_ending', lang: 'en' | 'es') =>
+  buildMail(kind, gcProf, { store: createStore(db as never), siteUrl: 'https://localholler.com', secret: 'test-secret', langFor: async () => lang }, NOW);
+
+describe('P1-1: a member whose only matches are feed only is never told nothing matched (quietPreview not stubbed)', () => {
+  it('the store counts them and lists none', async () => {
+    setSwitches({ filter: '1' });
+    const r = await createStore(onlyHeld() as never).matchesOf(U, ['general-contractor']);
+    expect(r.items).toHaveLength(0);
+    expect(r.total).toBe(3);
+    expect(r.feedOnly).toBe(3);
+  });
+  it('welcome EN: "3 records already match", no "nothing has matched", no titles', async () => {
+    setSwitches({ filter: '1' });
+    const m = (await mailFor(onlyHeld(), 'welcome', 'en'))!;
+    const body = m.html + m.text;
+    expect(body).toContain('3 records already match');
+    expect(body).not.toMatch(/nothing has matched|has not matched anything/);
+    expect(body).not.toContain('DeKalb County 1');
+    expect(body).toContain('Open your account to see what is there.');
+    expect(body).not.toContain('The rest are in your account');
+  });
+  it('welcome ES: says 3 registros coinciden, never "todavía no hay registros nuevos"', async () => {
+    setSwitches({ filter: '1' });
+    const m = (await mailFor(onlyHeld(), 'welcome', 'es'))!;
+    const body = m.html + m.text;
+    expect(body).toMatch(/3 registros que coinciden/);
+    expect(body).not.toMatch(/todavía no hay registros nuevos|todavía no encontró nada/);
+    expect(body).toContain('Abra su cuenta para ver qué hay.');
+  });
+  it('trial_ending EN and ES: says the records exist and are feed only; never "has not matched anything"', async () => {
+    setSwitches({ filter: '1' });
+    const en = (await mailFor(onlyHeld(), 'trial_ending', 'en'))!;
+    const es = (await mailFor(onlyHeld(), 'trial_ending', 'es'))!;
+    expect(en.variant).toBe('feed_only');
+    expect(es.variant).toBe('feed_only');
+    expect(en.html + en.text).toContain('Your account has 3 public records that match your trades and area. They are feed only, not alerts, so none is listed here.');
+    expect(en.html + en.text).not.toContain('has not matched anything');
+    expect(es.html + es.text).toContain('Su cuenta tiene 3 registros públicos que coinciden con sus oficios y su zona. Son solo para su lista, no alertas, así que ninguno aparece aquí.');
+    expect(es.html + es.text).not.toContain('todavía no encontró nada');
+  });
+  it('one feed-only record: singular wording, EN and ES', async () => {
+    setSwitches({ filter: '1' });
+    const db = new FakeDb({ holler_matches: [match(1, permit(1), { alert_hold: 'background' })] });
+    const en = (await mailFor(db, 'trial_ending', 'en'))!;
+    const es = (await mailFor(db, 'trial_ending', 'es'))!;
+    expect(en.html + en.text).toContain('Your account has 1 public record that matches your trades and area. It is feed only, not an alert, so it is not listed here.');
+    expect(es.html + es.text).toContain('Su cuenta tiene 1 registro público que coincide con sus oficios y su zona. Es solo para su lista, no una alerta, así que no aparece aquí.');
+  });
+  it('switch off: the same member gets what main sent (all three listed, no new wording)', async () => {
+    setSwitches({});
+    const m = (await mailFor(onlyHeld(), 'welcome', 'en'))!;
+    expect(m.html + m.text).toContain('DeKalb County 1');
+    const t = (await mailFor(onlyHeld(), 'trial_ending', 'en'))!;
+    expect(t.html + t.text).not.toContain('feed only');
+  });
+  it('a mix: the listed alert is named, the feed-only ones are counted but not named', async () => {
+    setSwitches({ filter: '1' });
+    const db = new FakeDb({ holler_matches: [match(1, permit(1)), match(2, permit(2), { alert_hold: 'background' }), match(3, permit(3), { alert_hold: 'held' })] });
+    const m = (await mailFor(db, 'welcome', 'en'))!;
+    const body = m.html + m.text;
+    expect(body).toContain('3 records already match');
+    expect(body).toContain('DeKalb County 1');
+    expect(body).not.toContain('DeKalb County 2');
+    expect(body).toContain('The rest are in your account');
+  });
+});
+
+describe('P2-1: the hold the feed still shows decides, and a saved or finished match is never left out', () => {
+  const noContact = 'New Construction | Single Family Dwelling | Issued';
+  const withAddress = 'Residential Alteration | 5600 LA SALLE SW, ATLANTA, GA 30331';
+  it('a permit held "no contact" that now carries a street address is listed; one without stays feed only', async () => {
+    setSwitches({ filter: '1' });
+    const db = new FakeDb({ holler_matches: [match(1, permit(1, { summary: withAddress }), { alert_hold: 'background' }), match(2, permit(2, { summary: noContact }), { alert_hold: 'background' })] });
+    const r = await createStore(db as never).matchesOf(U, ['general-contractor']);
+    expect(ids(r)).toEqual([1]);
+    expect(r.feedOnly).toBe(1);
+    expect(r.total).toBe(2);
+  });
+  it('a saved or done match with a hold stays listed; a new one with the same hold does not', async () => {
+    setSwitches({ filter: '1' });
+    const db = new FakeDb({ holler_matches: [match(1, permit(1), { alert_hold: 'background', status: 'saved' }), match(2, permit(2), { alert_hold: 'background', status: 'done' }), match(3, permit(3), { alert_hold: 'background' })] });
+    const r = await createStore(db as never).matchesOf(U, ['general-contractor']);
+    expect(ids(r)).toEqual([1, 2]);
+    expect(r.feedOnly).toBe(1);
+  });
+  it('a below-minimum permit is listed once the member has cleared the minimum, and stays feed only while one is set above its value', async () => {
+    setSwitches({ filter: '1' });
+    const rows = [match(1, permit(1, { summary: 'New Construction | $4,000 job value' }), { alert_hold: 'below_min' })];
+    const withMin = (min: number | null) => {
+      const db = new FakeDb({ holler_matches: rows.map((r) => ({ ...r })) });
+      const real = db.from.bind(db);
+      return { auth: {}, from: (t: string) => (t === 'holler_work_profiles' ? ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { work_property: 'any', work_type: 'any', work_min_value: min }, error: null }) }) }) }) : real(t)) };
+    };
+    const kept = await createStore(withMin(null) as never).matchesOf(U, ['general-contractor']);
+    expect(ids(kept)).toEqual([1]);
+    const held = await createStore(withMin(10000) as never).matchesOf(U, ['general-contractor']);
+    expect(ids(held)).toEqual([]);
+    expect(held.feedOnly).toBe(1);
+  });
+  it('the hold is read with the same function the feed uses (shownHold)', () => {
+    const src = readFileSync(join(__dirname, '../../lib/lifecycle/store.ts'), 'utf8');
+    expect(src).toMatch(/shownHold\(holdOf\(r\)/);
+  });
+  it('the alert_hold retry is announced in the log, never silent', async () => {
+    setSwitches({ filter: '1', bids: '1', erate: '1' });
+    const db = world();
+    let failed = false;
+    const wrapped = { auth: {}, from: (t: string) => { const b = db.from(t) as any; const s = b.select.bind(b); b.select = (c?: string, o?: any) => { if (t === 'holler_matches' && !failed && (c ?? '').includes('alert_hold')) { failed = true; db.failOn['holler_matches.select'] = 'column holler_matches.alert_hold does not exist'; db.failCode['holler_matches.select'] = '42703'; } else delete db.failOn['holler_matches.select']; return s(c, o); }; return b; } };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await createStore(wrapped as never).matchesOf(U, TRADES);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('alert_hold column missing'));
+    warn.mockRestore();
+  });
+});
+
+describe('P2-2: the trial-ended count leaves out retired and closed bids (filter on only)', () => {
+  const profile2 = { categories: ['tree-service'] as string[] | null, lat: 33.749, lon: -84.388, state: 'GA', radius_mi: 25, plan: null, subscription_status: 'trialing', extra_areas: null, keywords: null };
+  const rows = () => [
+    { id: 1, source: 'bids-manual', kind: 'contract', title: 'Open bid in Atlanta: Live tree work', summary: null, state: 'GA', lat: 33.75, lon: -84.39, categories: ['tree-service'], severity: 2, occurred_at: '2026-11-26T00:00:00Z', subtype: 'bid', expires_at: FUTURE, dueDate: null, retiredAt: null },
+    { id: 2, source: 'bids-manual', kind: 'contract', title: 'Open bid in Atlanta: Retired tree work', summary: null, state: 'GA', lat: 33.75, lon: -84.39, categories: ['tree-service'], severity: 2, occurred_at: '2026-11-26T00:00:00Z', subtype: 'bid', expires_at: FUTURE, dueDate: null, retiredAt: PAST },
+    { id: 3, source: 'bids-sf', kind: 'contract', title: 'Open bid in Atlanta: Closed tree work', summary: null, state: 'GA', lat: 33.75, lon: -84.39, categories: ['tree-service'], severity: 2, occurred_at: '2026-11-26T00:00:00Z', subtype: 'bid', expires_at: PAST, dueDate: null, retiredAt: null },
+  ];
+  function stub(a: Record<string, unknown>[]) {
+    const selects: string[] = [];
+    const db = { from: () => { const q: string[] = []; const chain: Record<string, unknown> = {}; for (const m of ['select', 'neq', 'overlaps', 'gte', 'lte', 'order', 'limit', 'not', 'is', 'or', 'in']) chain[m] = (...args: unknown[]) => (q.push(`${m}:${args.map(String).join(',')}`), chain); chain.then = (res: (v: unknown) => unknown) => { selects.push(...q.filter((x) => x.startsWith('select:'))); return Promise.resolve(res({ data: q.some((f) => f.startsWith('is:lat')) || q.some((f) => f.startsWith('in:source,')) ? [] : a, error: null })); }; return chain; } };
+    return { db: db as never, selects };
+  }
+  it('switch off counts all three (as main); switch on counts the live one only', async () => {
+    setSwitches({ bids: '1', erate: '1' });
+    const off = await missedSince(stub(rows()).db, profile2 as never, new Date('2026-11-25T00:00:00Z'), NOW);
+    setSwitches({ filter: '1', bids: '1', erate: '1' });
+    const on = await missedSince(stub(rows()).db, profile2 as never, new Date('2026-11-25T00:00:00Z'), NOW);
+    expect(on.count).toBe(1);
+    expect(off.count).toBe(3);
+  });
+  it('the select gains the three columns only while the switch is on', async () => {
+    setSwitches({});
+    const off = stub([]);
+    await missedSince(off.db, profile2 as never, new Date('2026-11-25T00:00:00Z'), NOW);
+    setSwitches({ filter: '1' });
+    const on = stub([]);
+    await missedSince(on.db, profile2 as never, new Date('2026-11-25T00:00:00Z'), NOW);
+    const sel = (f: { selects: string[] }) => f.selects.filter((x) => x.startsWith('select:'));
+    expect(sel(off).length).toBeGreaterThan(0);
+    expect(sel(off).some((c) => c.includes('retiredAt'))).toBe(false);
+    expect(sel(on).every((c) => c.includes('retiredAt:data->>retiredAt') && c.includes('expires_at'))).toBe(true);
   });
 });
 
@@ -265,28 +435,27 @@ async function runWelcome(lang: 'en' | 'es', dry = false, send: (i: any) => Prom
 
 describe('followupDrop (the pure rule)', () => {
   const base = { bidsOn: true, erateOn: true, nowMs: NOW_MS };
-  it('order: retired, then bid_hidden, then held; a plain record is never dropped', () => {
-    expect(followupDrop({ source: 'bids-manual', subtype: 'bid', retiredAt: PAST, expires_at: PAST }, { alert_hold: 'held' }, base)).toBe('retired');
-    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, { alert_hold: 'held' }, base)).toBe('bid_hidden');
-    expect(followupDrop({ source: 'nws', subtype: null }, { alert_hold: 'held' }, base)).toBe('held');
-    expect(followupDrop({ source: 'nws', subtype: null }, { alert_hold: null }, base)).toBeNull();
-    expect(followupDrop(null, null, base)).toBeNull();
-    expect(followupDrop({ source: 'nws', retiredAt: '   ' }, null, base)).toBeNull();
+  it('order: retired, then bid_hidden; a plain record is never dropped', () => {
+    expect(followupDrop({ source: 'bids-manual', subtype: 'bid', retiredAt: PAST, expires_at: PAST }, base)).toBe('retired');
+    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, base)).toBe('bid_hidden');
+    expect(followupDrop({ source: 'nws', subtype: null }, base)).toBeNull();
+    expect(followupDrop(null, base)).toBeNull();
+    expect(followupDrop({ source: 'nws', retiredAt: '   ' }, base)).toBeNull();
   });
   it('a federal bid past its response date is dropped for a list, kept for the outcome follow-up (keepClosed)', () => {
     const s = { source: 'sam-gov', subtype: null, expires_at: PAST };
-    expect(followupDrop(s, null, base)).toBe('bid_hidden');
-    expect(followupDrop(s, null, { ...base, keepClosed: true })).toBeNull();
-    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, null, { ...base, keepClosed: true })).toBeNull();
-    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, null, { ...base, keepClosed: true, bidsOn: false })).toBe('bid_hidden');
-    expect(followupDrop({ source: 'bids-erate', subtype: 'bid', expires_at: FUTURE }, null, { ...base, keepClosed: true, erateOn: false })).toBe('bid_hidden');
-    expect(followupDrop({ source: 'bids-manual', subtype: 'bid', retiredAt: PAST }, null, { ...base, keepClosed: true })).toBe('retired');
+    expect(followupDrop(s, base)).toBe('bid_hidden');
+    expect(followupDrop(s, { ...base, keepClosed: true })).toBeNull();
+    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, { ...base, keepClosed: true })).toBeNull();
+    expect(followupDrop({ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, { ...base, keepClosed: true, bidsOn: false })).toBe('bid_hidden');
+    expect(followupDrop({ source: 'bids-erate', subtype: 'bid', expires_at: FUTURE }, { ...base, keepClosed: true, erateOn: false })).toBe('bid_hidden');
+    expect(followupDrop({ source: 'bids-manual', subtype: 'bid', retiredAt: PAST }, { ...base, keepClosed: true })).toBe('retired');
   });
   it('agrees with the feed: bidHidden is the test for bids', async () => {
     const { bidHidden } = await import('@/lib/signals/bid-sources');
     for (const s of [{ source: 'bids-sf', subtype: 'bid', expires_at: PAST }, { source: 'bids-sf', subtype: 'bid', expires_at: FUTURE }, { source: 'bids-erate', subtype: 'bid', expires_at: FUTURE }, { source: 'sam-gov', expires_at: PAST }, { source: 'nws' }])
       for (const bidsOn of [true, false])
-        for (const erateOn of [true, false]) expect(followupDrop(s, null, { bidsOn, erateOn, nowMs: NOW_MS }) === 'bid_hidden').toBe(bidHidden(s, bidsOn, NOW_MS, erateOn));
+        for (const erateOn of [true, false]) expect(followupDrop(s, { bidsOn, erateOn, nowMs: NOW_MS }) === 'bid_hidden').toBe(bidHidden(s, bidsOn, NOW_MS, erateOn));
   });
 });
 
@@ -361,5 +530,20 @@ describe('the outcome follow-up (moat)', () => {
     expect(mailBody).toContain('Storm one');
     expect(mailBody).not.toContain('Zebra');
     expect(mailBody).toMatch(/l=es/);
+  });
+  it('P3: hidden bids are removed before the 600-candidate cut, so they never use up the places', async () => {
+    setSwitches({ filter: '1', bids: '' });
+    const day = 86_400_000;
+    const ago = (n: number) => new Date(NOW_MS - n * day).toISOString();
+    const hidden = Array.from({ length: 650 }, (_, i) => ({ id: 1000 + i, source: 'bids-sf', kind: 'contract', title: `Open bid ${i}`, city: 'SF', state: 'CA', occurred_at: ago(12), subtype: 'bid', expires_at: FUTURE, retiredAt: null }));
+    const plain = [1, 2, 3].map((i) => ({ id: i, source: 'nws', kind: 'alert', title: `Storm ${i}`, city: 'Marietta', state: 'GA', occurred_at: ago(12), subtype: null }));
+    const fb = [...hidden, ...plain].map((s, i) => ({ user_id: 'u1', signal_id: s.id, verdict: 'useful', updated_at: new Date(NOW_MS - 20 * day + i * 1000).toISOString() }));
+    const db = makeDb(
+      { holler_signal_feedback: fb, holler_signals: [...hidden, ...plain], holler_outcome_asks: [], holler_profiles: [{ user_id: 'u1', business_name: 'Acme', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: ago(0.001), email_verified_at: ago(30), created_at: ago(40) }] },
+      { users: { u1: 'u1@example.test' } },
+    );
+    const c = await runMoat({ db, now: NOW, dry: true, siteUrl: 'https://x.test', secret: 'sec', send: vi.fn() as never });
+    expect(c.candidates).toBe(3);
+    expect(c.followup_dropped).toEqual({ bid_hidden: 650, retired: 0 });
   });
 });

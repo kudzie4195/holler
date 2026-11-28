@@ -103,7 +103,8 @@ export interface Summary {
   retried: number;
   /**
    * Round 35: matches the follow-up filter left out of the emails built in this run (HOLLER_FOLLOWUP_FILTER_ENABLED, lib/signals/followup-filter.ts),
-   * by reason. A dry run counts what it would leave out. Absent while the switch is off. An email built twice (a retry) counts twice.
+   * by reason: `retired` and `bid_hidden` are left out of every list and count; `held` are feed-only matches left out of the list of alerts
+   * but still counted as matches. A dry run counts what it would leave out. Absent while the switch is off. An email built twice (a retry) counts twice.
    */
   followup_dropped?: { retired: number; bid_hidden: number; held: number };
   would_send?: { user_id: string; kind: LifecycleKind; variant: string }[];
@@ -143,7 +144,7 @@ export async function buildMail(
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
-    if (m.dropped) onDropped?.(m.dropped);
+    if (m.dropped) onDropped?.({ ...m.dropped, held: m.feedOnly ?? 0 });
     if (m.total > 0) {
       return { ...renderWelcomeMatches({ ...common, total: m.total, capped: m.capped, items: m.items.slice(0, 5) }), variant: 'matches' };
     }
@@ -153,7 +154,7 @@ export async function buildMail(
   }
   if (kind === 'trial_ending') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
-    if (m.dropped) onDropped?.(m.dropped);
+    if (m.dropped) onDropped?.({ ...m.dropped, held: m.feedOnly ?? 0 });
     let rank = deps.rank;
     if (deps.rankFor) {
       try {
@@ -165,7 +166,9 @@ export async function buildMail(
     const items = bestAlerts(m.items, rank);
     const hoursLeft = (Date.parse(p.trial_ends_at ?? '') - now.getTime()) / 3_600_000;
     const daysLeft = trialEndingDays(Number.isFinite(hoursLeft) ? hoursLeft : 84);
-    return { ...renderTrialEnding({ ...common, items, daysLeft }), variant: items.length ? 'alerts' : 'no_alerts' };
+    // Round 35: with the follow-up filter on, matches that are in the feed but not alerts are still matches: the email never says "nothing matched".
+    const feedOnly = items.length === 0 && m.total > 0 ? m.total : 0;
+    return { ...renderTrialEnding({ ...common, items, daysLeft, ...(feedOnly > 0 ? { feedOnly } : {}) }), variant: items.length ? 'alerts' : feedOnly > 0 ? 'feed_only' : 'no_alerts' };
   }
   const missed = await deps.store.missedSince(p, now);
   return { ...renderTrialEnded({ ...common, missed: missed.count, capped: missed.capped }), variant: missed.count > 0 ? 'missed' : 'paused_only' };

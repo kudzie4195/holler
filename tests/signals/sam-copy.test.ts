@@ -133,6 +133,43 @@ describe('switch ON: the alert email opens honestly (real notify route)', () => 
   }
 });
 
+describe('P2-3: a planned sole source card says one honest thing from top to bottom (real notify route)', () => {
+  const OLD = {
+    en: ['Work may follow', 'it may not be open yet', 'your eligibility is not known', 'A bid listing does not show'],
+    es: ['Puede haber trabajo', 'puede que aún no esté abierto', 'no se sabe si usted califica', 'Una licitación publicada no muestra'],
+  };
+  for (const lang of ['en', 'es'] as const) {
+    it(`${lang}: sole source keeps none of the "may follow / not open yet / eligibility" lines, and says it is not open for offers`, async () => {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+      const r = await runNotify([match(1, KINDS.sole)], lang);
+      for (const w of OLD[lang]) expect(r.all).not.toContain(w);
+      expect(r.all).toContain(lang === 'en' ? 'Not open for offers' : 'No está abierto a ofertas');
+      expect(r.all).toContain(lang === 'en' ? 'This is a planned sole source. Nothing is open for offers.' : 'Esta es una contratación directa planeada. No está abierto a ofertas.');
+      expect(r.all).toContain(lang === 'en' ? 'which business the agency means is not shown here' : 'aquí no se muestra');
+      expect(r.all).toContain(lang === 'en' ? 'is not open for offers.' : 'no está abierto a ofertas.');
+    });
+    it(`${lang}: an email of early notices only closes with the notice line, not "a bid listing"`, async () => {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+      const r = await runNotify([match(1, KINDS.early)], lang);
+      expect(r.all).not.toContain(OLD[lang][3]);
+      expect(r.all).toContain(lang === 'en' ? 'A federal notice does not show who may respond' : 'Un aviso federal no muestra quién puede responder');
+    });
+    it(`${lang}: early notice keeps its own "may follow" lines (they are true), and an ordinary bid in the same email keeps the bid closing line`, async () => {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+      const r = await runNotify([match(1, KINDS.early), match(2, KINDS.bid)], lang);
+      expect(r.all).toContain(OLD[lang][3]);
+      expect(r.all).toContain(lang === 'en' ? 'Early notice from a federal agency' : 'Aviso anticipado de una agencia federal');
+    });
+  }
+  it('the new keys have twins and no em dash', () => {
+    for (const key of ['sam.email.chip_sole', 'sam.email.unknown_sole', 'sam.email.honesty_notice'] as const) {
+      expect(EN_SAM[key].length).toBeGreaterThan(5);
+      expect(ES_SAM[key].length).toBeGreaterThan(5);
+      expect(EN_SAM[key] + ES_SAM[key]).not.toMatch(/[\u2014\u2013]/);
+    }
+  });
+});
+
 describe('switch OFF: the email is what it was (real notify route)', () => {
   for (const lang of ['en', 'es'] as const) {
     it(`${lang}: every kind of notice still opens "${L[lang].fed}" and says "the bid is listed"; no new words`, async () => {

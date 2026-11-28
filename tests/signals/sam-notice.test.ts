@@ -168,7 +168,7 @@ describe('the card line', () => {
   });
   it('copy rules: no em dash, no banned words, no promise, in both languages, for every string the card can print', () => {
     const all = Object.entries(en).filter(([k]) => k.startsWith('sam.'));
-    expect(all.length).toBe(3 + 19 + 3 + 6); // + the sole-source intent line, + round 35: two email openers, two subject words, the known phrase, the Spanish bid line
+    expect(all.length).toBe(3 + 19 + 3 + 9); // + the sole-source intent line, + round 35: two email openers, two subject words, the known phrase, the Spanish bid line, the sole chip, the sole unknown phrase, the notice closing line
     for (const [k, v] of all) {
       expect(v, k).not.toMatch(/—/);
       expect(v, k).not.toMatch(/\blead(s)?\b|guarantee|you will win|they need you|canvass|knock/i);

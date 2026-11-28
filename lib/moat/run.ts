@@ -93,6 +93,27 @@ export async function runMoat(args: {
   // Already-asked rows are dropped page by page BEFORE the candidate limit: an answered "no" or "not yet" keeps the verdict useful, so
   // a window full of asked rows must not hide a new one. Oldest first, at most MAX_SCAN_PAGES pages of MAX_CANDIDATES rows.
   let cands: Cand[] = [];
+  // Round 35: the same bid switches and retirement the feed applies (a bid that has simply closed is still asked about: that is when "did it
+  // lead to work?" is asked). The test runs page by page BEFORE the candidate limit, so hidden bids never use up the 600 places. Off, nothing
+  // here differs from before.
+  const filterOn = followupFilterEnabled();
+  const sigs = new Map<number, Sig>();
+  const dropped = { bid_hidden: 0, retired: 0 };
+  const hiddenNow = (c: Cand): boolean => {
+    const s = sigs.get(c.signal_id);
+    const why = s ? followupDrop(s, { nowMs: now.getTime(), keepClosed: true }) : null;
+    if (!why) return false;
+    dropped[why]++;
+    return true;
+  };
+  const readSigs = async (signalIds: number[]) => {
+    for (const ids of chunk([...new Set(signalIds)].filter((n) => !sigs.has(n)))) {
+      const columns: string = filterOn ? `id, source, kind, title, city, state, occurred_at, subtype:data->>subtype, ${FOLLOWUP_SIGNAL_SELECT}` : 'id, source, kind, title, city, state, occurred_at';
+      const r = await db.from('holler_signals').select(columns).in('id', ids);
+      if (r.error) throw new Error(`signals read failed: ${r.error.message}`);
+      for (const s of (r.data ?? []) as unknown as Sig[]) sigs.set(s.id, s);
+    }
+  };
   // The next page starts after the rows actually returned, and only an EMPTY page ends the read (max_rows may be below a page).
   let from = 0;
   for (let page = 0; page < MAX_SCAN_PAGES && cands.length < MAX_CANDIDATES; page++) {
@@ -127,34 +148,20 @@ export async function runMoat(args: {
       }
     }
     if (rows.length === 0) break;
-    cands.push(...rows.filter((c) => !asked.has(`${c.user_id}:${c.signal_id}`)));
+    const fresh = rows.filter((c) => !asked.has(`${c.user_id}:${c.signal_id}`));
+    if (filterOn) {
+      await readSigs(fresh.map((c) => c.signal_id));
+      cands.push(...fresh.filter((c) => !hiddenNow(c)));
+    } else cands.push(...fresh);
     from += rows.length;
   }
   cands = cands.slice(0, MAX_CANDIDATES);
 
   // Public signal fields only. A resident request is never asked about.
-  // Round 35: the same bid switches and retirement the feed applies (a bid that has simply closed is still asked about: that is when "did it
-  // lead to work?" is asked). Off, nothing below differs from before.
-  const filterOn = followupFilterEnabled();
-  const sigs = new Map<number, Sig>();
-  for (const ids of chunk([...new Set(cands.map((c) => c.signal_id))])) {
-    const columns: string = filterOn ? `id, source, kind, title, city, state, occurred_at, subtype:data->>subtype, ${FOLLOWUP_SIGNAL_SELECT}` : 'id, source, kind, title, city, state, occurred_at';
-    const r = await db.from('holler_signals').select(columns).in('id', ids);
-    if (r.error) throw new Error(`signals read failed: ${r.error.message}`);
-    for (const s of (r.data ?? []) as unknown as Sig[]) sigs.set(s.id, s);
-  }
-  const dropped = { bid_hidden: 0, retired: 0 };
+  await readSigs(cands.map((c) => c.signal_id));
   cands = cands.filter((c) => {
     const s = sigs.get(c.signal_id);
-    if (!s || s.source === HOLLER_REQUEST_SOURCE) return false;
-    if (filterOn) {
-      const why = followupDrop(s, null, { nowMs: now.getTime(), keepClosed: true });
-      if (why === 'retired' || why === 'bid_hidden') {
-        dropped[why]++;
-        return false;
-      }
-    }
-    return true;
+    return !!s && s.source !== HOLLER_REQUEST_SOURCE;
   });
   if (filterOn) counts.followup_dropped = dropped;
   counts.candidates = cands.length;
