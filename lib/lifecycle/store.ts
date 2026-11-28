@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
-import { isFeedLabel, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
+import { isFeedLabel, KEPT_MATCH_STATUSES, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
+import { holdOf, missingHoldColumn, shownHold, type ContactLike } from '../signals/alert-gate';
+import { jobValueOf, VALUE_SELECT } from '../signals/permit-value';
+import { FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled, type FollowupDrop } from '../signals/followup-filter';
 import { STAGE_SELECT } from '../signals/stage';
 import { WEATHER_SELECT } from '../signals/weather-hazard';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
@@ -27,8 +30,16 @@ export interface FullProfile extends LifecycleProfile {
 export interface MatchesOf {
   /** Newest first. Resident requests are never included. */
   items: (AlertItem & { id: number })[];
+  /** Every match the member has in the feed. With the follow-up filter on this includes the feed-only ones (`feedOnly`), which are not in `items`. */
   total: number;
   capped: boolean;
+  /**
+   * Round 35: how many matches the follow-up filter left out of every list and count, by reason (lib/signals/followup-filter.ts), and how many
+   * feed-only matches it kept out of the list but still counted in `total`. Present only while HOLLER_FOLLOWUP_FILTER_ENABLED is on; absent
+   * otherwise, so the answer is what it was.
+   */
+  dropped?: Record<FollowupDrop, number>;
+  feedOnly?: number;
 }
 
 export interface QuietPreview {
@@ -101,6 +112,55 @@ interface SignalEmbed {
   /** Round 33: WEATHER_SELECT aliases (an NWS alert's hail size and gust), passed to the labeller only. */
   maxHailSizeIn?: string | null;
   maxWindGustMph?: string | null;
+  /** Round 35 (FOLLOWUP_SIGNAL_SELECT, only while the follow-up filter is on): what the bid test reads. */
+  expires_at?: string | null;
+  dueDate?: string | null;
+  retiredAt?: string | null;
+  jobValue?: unknown;
+}
+
+/**
+ * Round 35: the matches among `rows` whose hold the FEED still shows today (the same decision as app/app/page.tsx and lib/mobile/feed.ts:
+ * shownHold, with the member's contacts and current minimum). A permit stored held for "no contact path" that has since gained a contractor
+ * or an address is not in the set; neither is a "below your minimum" permit once the member clears or lowers the minimum. A failed read of
+ * contacts or of the minimum leaves the answer to what the record's own text says (as the feed does).
+ */
+async function liveHolds(
+  db: Db,
+  userId: string,
+  rows: { alert_hold?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[],
+): Promise<Set<object>> {
+  const held = rows.filter((r) => !!holdOf(r));
+  const out = new Set<object>();
+  if (held.length === 0) return out;
+  const sigOf = (r: { signal: SignalEmbed | SignalEmbed[] | null }) => (Array.isArray(r.signal) ? r.signal[0] : r.signal);
+  let contacts = new Map<number, ContactLike[]>();
+  let minNow: number | null | undefined;
+  try {
+    const { mayHaveContacts } = await import('../outreach/plan');
+    const ids = held.filter((r) => holdOf(r) === 'background').map((r) => sigOf(r)).filter((x): x is SignalEmbed => !!x && mayHaveContacts(x.source, x.kind)).map((x) => x.id);
+    if (ids.length > 0) {
+      const { loadMemberContacts } = await import('../outreach/loader');
+      contacts = (await loadMemberContacts({ db: db as unknown as SupabaseClient, userId, signalIds: ids, locked: false })) as unknown as Map<number, ContactLike[]>;
+    }
+  } catch {
+    contacts = new Map();
+  }
+  if (held.some((r) => holdOf(r) === 'below_min')) {
+    try {
+      const { readWorkProfile } = await import('../auth/work-profile');
+      const w = await readWorkProfile(db as unknown as SupabaseClient, userId);
+      minNow = w.available ? w.settings.minValue : undefined;
+    } catch {
+      minNow = undefined;
+    }
+  }
+  for (const r of held) {
+    const s = sigOf(r);
+    if (!s) continue;
+    if (shownHold(holdOf(r), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) }, { subtype: s.subtype })) out.add(r);
+  }
+  return out;
 }
 
 export function createStore(db: Db): LifecycleStore {
@@ -178,20 +238,44 @@ export function createStore(db: Db): LifecycleStore {
     },
 
     async matchesOf(userId, trades) {
-      const { data, error } = await db
-        .from('holler_matches')
-        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT}, ${WEATHER_SELECT})`)
-        .eq('user_id', userId)
-        .neq('status', 'dismissed')
-        .order('created_at', { ascending: false })
-        .limit(MATCH_ROW_CAP);
+      // Round 35: with HOLLER_FOLLOWUP_FILTER_ENABLED on, the read also takes what the feed's bid test and the alert hold need. Off, the select is
+      // the one below, character for character.
+      const filter = followupFilterEnabled();
+      const signalColumns = `id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT}, ${WEATHER_SELECT}`;
+      const read = (withHold: boolean) =>
+        db
+          .from('holler_matches')
+          .select(`status, ${withHold ? 'alert_hold, ' : ''}signal:holler_signals(${signalColumns}${filter ? `, ${FOLLOWUP_SIGNAL_SELECT}, ${VALUE_SELECT}` : ''})`)
+          .eq('user_id', userId)
+          .neq('status', 'dismissed')
+          .order('created_at', { ascending: false })
+          .limit(MATCH_ROW_CAP);
+      let { data, error } = await read(filter);
+      // Before migration 0027 there is no alert_hold column: read again without it (bids and retired bids are still filtered).
+      if (error && filter && missingHoldColumn(error)) {
+        // Not expected (migration 0027 is applied): say so, because without the column no match can be told apart as feed only.
+        console.warn('[lifecycle] alert_hold column missing: feed-only matches are listed as alerts in this run');
+        ({ data, error } = await read(false));
+      }
       if (error) throw new Error(`matches: ${error.message}`);
-      const rows = (data ?? []) as unknown as { status?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
+      const rows = (data ?? []) as unknown as { status?: string | null; alert_hold?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
       const items: (AlertItem & { id: number })[] = [];
+      const dropped: Record<FollowupDrop, number> = { retired: 0, bid_hidden: 0 };
+      let feedOnly = 0;
+      const live = filter ? await liveHolds(db, userId, rows) : null;
+      const nowMs = Date.now();
       for (const r of rows) {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
+        // Round 35: what the feed and the alert email already hide is never named in a follow-up email either (lib/signals/followup-filter.ts).
+        if (filter) {
+          const why = followupDrop(s, { nowMs });
+          if (why) {
+            dropped[why]++;
+            continue;
+          }
+        }
         // Round 19 integration: the same label input as the feed (recordLabelInput: summary, permit stage, place) and the same rule for a
         // match the member saved or marked done (keptMatchLabel: it stays listed as a feed item whatever its label is now).
         const label = trades
@@ -199,6 +283,11 @@ export function createStore(db: Db): LifecycleStore {
           : null;
         // A record this base calls context for the member's trades is hidden in the feed, so it is never listed or counted in mail either.
         if (label && !isFeedLabel(label)) continue;
+        // Round 35: a match the feed still shows as feed only is a match (it counts) but not an alert (it is not listed). Never one the member kept.
+        if (live && live.has(r) && !KEPT_MATCH_STATUSES.includes(r.status ?? '')) {
+          feedOnly++;
+          continue;
+        }
         items.push({
           ...(label ? { label } : {}),
           id: s.id,
@@ -213,7 +302,7 @@ export function createStore(db: Db): LifecycleStore {
         });
       }
       items.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
-      return { items, total: items.length, capped: rows.length >= MATCH_ROW_CAP };
+      return { items, total: items.length + feedOnly, capped: rows.length >= MATCH_ROW_CAP, ...(filter ? { dropped, feedOnly } : {}) };
     },
 
     async quietPreview(profile, now) {

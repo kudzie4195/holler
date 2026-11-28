@@ -2,6 +2,7 @@ import { parseLang, type Lang } from '@/lib/i18n';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk, decideNotify, signUnsubscribeToken, type PlanProfile } from '@/lib/email';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
+import { FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled } from '@/lib/signals/followup-filter';
 import { ASK_AFTER_DAYS, ASK_WINDOW_DAYS, EMAIL_GAP_DAYS, EMAIL_MAX_ALERTS } from './outcome';
 import { signOutcomeToken } from './token';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
@@ -37,6 +38,12 @@ export interface MoatRunCounts {
   skipped_ineligible: number;
   send_failed: number;
   failed: number;
+  /**
+   * Round 35: candidates left out by the follow-up filter (HOLLER_FOLLOWUP_FILTER_ENABLED, lib/signals/followup-filter.ts): a bid whose source
+   * switch is off (or an E-Rate row with HOLLER_ERATE_ENABLED empty), or a hand-added bid the owner retired. Absent while the switch is off.
+   * A dry run counts the same. Left-out candidates are not asked, so they are read again next run while inside the window.
+   */
+  followup_dropped?: { bid_hidden: number; retired: number };
 }
 
 interface Cand {
@@ -52,6 +59,11 @@ interface Sig {
   city: string | null;
   state: string | null;
   occurred_at: string;
+  /** Round 35 (FOLLOWUP_SIGNAL_SELECT, read only while the follow-up filter is on). */
+  subtype?: string | null;
+  expires_at?: string | null;
+  dueDate?: string | null;
+  retiredAt?: string | null;
 }
 interface Prof extends PlanProfile {
   business_name: string;
@@ -81,6 +93,27 @@ export async function runMoat(args: {
   // Already-asked rows are dropped page by page BEFORE the candidate limit: an answered "no" or "not yet" keeps the verdict useful, so
   // a window full of asked rows must not hide a new one. Oldest first, at most MAX_SCAN_PAGES pages of MAX_CANDIDATES rows.
   let cands: Cand[] = [];
+  // Round 35: the same bid switches and retirement the feed applies (a bid that has simply closed is still asked about: that is when "did it
+  // lead to work?" is asked). The test runs page by page BEFORE the candidate limit, so hidden bids never use up the 600 places. Off, nothing
+  // here differs from before.
+  const filterOn = followupFilterEnabled();
+  const sigs = new Map<number, Sig>();
+  const dropped = { bid_hidden: 0, retired: 0 };
+  const hiddenNow = (c: Cand): boolean => {
+    const s = sigs.get(c.signal_id);
+    const why = s ? followupDrop(s, { nowMs: now.getTime(), keepClosed: true }) : null;
+    if (!why) return false;
+    dropped[why]++;
+    return true;
+  };
+  const readSigs = async (signalIds: number[]) => {
+    for (const ids of chunk([...new Set(signalIds)].filter((n) => !sigs.has(n)))) {
+      const columns: string = filterOn ? `id, source, kind, title, city, state, occurred_at, subtype:data->>subtype, ${FOLLOWUP_SIGNAL_SELECT}` : 'id, source, kind, title, city, state, occurred_at';
+      const r = await db.from('holler_signals').select(columns).in('id', ids);
+      if (r.error) throw new Error(`signals read failed: ${r.error.message}`);
+      for (const s of (r.data ?? []) as unknown as Sig[]) sigs.set(s.id, s);
+    }
+  };
   // The next page starts after the rows actually returned, and only an EMPTY page ends the read (max_rows may be below a page).
   let from = 0;
   for (let page = 0; page < MAX_SCAN_PAGES && cands.length < MAX_CANDIDATES; page++) {
@@ -115,22 +148,22 @@ export async function runMoat(args: {
       }
     }
     if (rows.length === 0) break;
-    cands.push(...rows.filter((c) => !asked.has(`${c.user_id}:${c.signal_id}`)));
+    const fresh = rows.filter((c) => !asked.has(`${c.user_id}:${c.signal_id}`));
+    if (filterOn) {
+      await readSigs(fresh.map((c) => c.signal_id));
+      cands.push(...fresh.filter((c) => !hiddenNow(c)));
+    } else cands.push(...fresh);
     from += rows.length;
   }
   cands = cands.slice(0, MAX_CANDIDATES);
 
   // Public signal fields only. A resident request is never asked about.
-  const sigs = new Map<number, Sig>();
-  for (const ids of chunk([...new Set(cands.map((c) => c.signal_id))])) {
-    const r = await db.from('holler_signals').select('id, source, kind, title, city, state, occurred_at').in('id', ids);
-    if (r.error) throw new Error(`signals read failed: ${r.error.message}`);
-    for (const s of (r.data ?? []) as Sig[]) sigs.set(s.id, s);
-  }
+  await readSigs(cands.map((c) => c.signal_id));
   cands = cands.filter((c) => {
     const s = sigs.get(c.signal_id);
     return !!s && s.source !== HOLLER_REQUEST_SOURCE;
   });
+  if (filterOn) counts.followup_dropped = dropped;
   counts.candidates = cands.length;
 
   const byUser = new Map<string, Cand[]>();

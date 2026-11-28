@@ -35,5 +35,16 @@ export const EN_SAM = {
   // that carries a set-aside (it replaces "A bid listing does not show who may respond ...", which a set-aside line contradicts).
   'sam.early.intent_line': 'This is an early notice. Nothing is open for offers yet.',
   'sam.sole.intent_line': 'This is a planned sole source. Nothing is open for offers.',
+  // Round 35: the email's opener for an early notice or a planned sole source (it replaces "Federal bid in ..."), the subject's "what" word, the
+  // email's "what is known" phrase, and the app's plain line for an ordinary federal bid in Spanish (the English twin is the old line).
+  'sam.title.early': 'Early notice from a federal agency in {place}: {text}',
+  'sam.title.sole': 'Planned sole source in {place}: {text}',
+  'sam.email.what_early': 'Early federal notice',
+  'sam.email.what_sole': 'Planned sole source',
+  'sam.email.chip_sole': 'Not open for offers',
+  'sam.email.unknown_sole': 'which business the agency means is not shown here',
+  'sam.email.honesty_notice': 'A federal notice does not show who may respond or who will be chosen, and an early notice or a planned sole source is not open for offers.',
+  'sam.email.known_notice': 'the notice is listed',
+  'sam.bid.intent_line': 'This work is out for bid. No contract has been awarded yet.',
   'sam.email.honesty_bid_setaside': 'A bid listing does not show who will be chosen. A set-aside limits who may respond: read the notice for the rules.',
 } as const;

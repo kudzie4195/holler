@@ -4,6 +4,7 @@ import { expandCategoriesForRouting } from '../signals/permit-routing';
 import { matchScope, type ScopeInput } from '../plan';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-location';
+import { FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled } from '../signals/followup-filter';
 
 /**
  * Trial-ended: how many new public records matched this member's trades and area since the trial ended. A real count or an error, never a guess.
@@ -40,6 +41,10 @@ interface Row {
   occurred_at: string;
   subtype: string | null;
   projectOf?: string | null;
+  /** Round 35 (FOLLOWUP_SIGNAL_SELECT, read only while the follow-up filter is on). */
+  expires_at?: string | null;
+  dueDate?: string | null;
+  retiredAt?: string | null;
 }
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -64,10 +69,14 @@ export async function missedSince(
   if (!radius || located.length === 0 || scope.categories.length === 0) return { count: 0, capped: false };
   const states = [...new Set(scope.areas.map((a) => a.state?.toUpperCase()).filter((s): s is string => !!s))];
 
+  // Round 35: with the follow-up filter on, a retired hand-added bid and a bid whose date has passed are not counted either (matchOne already
+  // applies the bid and E-Rate switches). Off, the select is COLUMNS and the count is what it was.
+  const filter = followupFilterEnabled();
+  const columns: string = filter ? `${COLUMNS},${FOLLOWUP_SIGNAL_SELECT.replace(/, /g, ',')}` : COLUMNS;
   const base = () =>
     db
       .from('holler_signals')
-      .select(COLUMNS)
+      .select(columns)
       .neq('source', HOLLER_REQUEST_SOURCE)
       .neq('kind', 'ask')
       .overlaps('categories', expandCategoriesForRouting(scope.categories))
@@ -113,6 +122,7 @@ export async function missedSince(
     if (seen.has(id)) continue;
     seen.add(id);
     if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || r.projectOf) continue;
+    if (filter && followupDrop(r, { nowMs: now.getTime() })) continue;
     const sig: MatchSignal = {
       id: Number(r.id),
       categories: r.categories ?? [],

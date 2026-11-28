@@ -101,6 +101,12 @@ export interface Summary {
   stale_cleared: number;
   failed: number;
   retried: number;
+  /**
+   * Round 35: matches the follow-up filter left out of the emails built in this run (HOLLER_FOLLOWUP_FILTER_ENABLED, lib/signals/followup-filter.ts),
+   * by reason: `retired` and `bid_hidden` are left out of every list and count; `held` are feed-only matches left out of the list of alerts
+   * but still counted as matches. A dry run counts what it would leave out. Absent while the switch is off. An email built twice (a retry) counts twice.
+   */
+  followup_dropped?: { retired: number; bid_hidden: number; held: number };
   would_send?: { user_id: string; kind: LifecycleKind; variant: string }[];
 }
 
@@ -117,6 +123,7 @@ export async function buildMail(
   p: FullProfile,
   deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor' | 'langFor'>,
   now: Date,
+  onDropped?: (d: { retired: number; bid_hidden: number; held: number }) => void,
 ): Promise<Built | null> {
   const base = deps.siteUrl.replace(/\/$/, '');
   let lang: Lang = 'en';
@@ -137,6 +144,7 @@ export async function buildMail(
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
+    if (m.dropped) onDropped?.({ ...m.dropped, held: m.feedOnly ?? 0 });
     if (m.total > 0) {
       return { ...renderWelcomeMatches({ ...common, total: m.total, capped: m.capped, items: m.items.slice(0, 5) }), variant: 'matches' };
     }
@@ -146,6 +154,7 @@ export async function buildMail(
   }
   if (kind === 'trial_ending') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
+    if (m.dropped) onDropped?.({ ...m.dropped, held: m.feedOnly ?? 0 });
     let rank = deps.rank;
     if (deps.rankFor) {
       try {
@@ -157,7 +166,9 @@ export async function buildMail(
     const items = bestAlerts(m.items, rank);
     const hoursLeft = (Date.parse(p.trial_ends_at ?? '') - now.getTime()) / 3_600_000;
     const daysLeft = trialEndingDays(Number.isFinite(hoursLeft) ? hoursLeft : 84);
-    return { ...renderTrialEnding({ ...common, items, daysLeft }), variant: items.length ? 'alerts' : 'no_alerts' };
+    // Round 35: with the follow-up filter on, matches that are in the feed but not alerts are still matches: the email never says "nothing matched".
+    const feedOnly = items.length === 0 && m.total > 0 ? m.total : 0;
+    return { ...renderTrialEnding({ ...common, items, daysLeft, ...(feedOnly > 0 ? { feedOnly } : {}) }), variant: items.length ? 'alerts' : feedOnly > 0 ? 'feed_only' : 'no_alerts' };
   }
   const missed = await deps.store.missedSince(p, now);
   return { ...renderTrialEnded({ ...common, missed: missed.count, capped: missed.capped }), variant: missed.count > 0 ? 'missed' : 'paused_only' };
@@ -221,6 +232,13 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
   const dry = !!deps.dry;
   const s = emptySummary(dry);
   const { store } = deps;
+  const noteDropped = (d: { retired: number; bid_hidden: number; held: number }) => {
+    const tally = s.followup_dropped ?? { retired: 0, bid_hidden: 0, held: 0 };
+    tally.retired += d.retired;
+    tally.bid_hidden += d.bid_hidden;
+    tally.held += d.held;
+    s.followup_dropped = tally;
+  };
 
   const profiles = await store.loadProfiles(now);
   s.considered = profiles.length;
@@ -302,7 +320,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
           s.skipped_trial_extended++;
           continue;
         }
-        const m = await buildMail(c.kind, p, deps, now);
+        const m = await buildMail(c.kind, p, deps, now, noteDropped);
         if (!m) s.skipped_no_data++;
         else s.would_send.push({ user_id: c.userId, kind: c.kind, variant: m.variant });
       } catch {
@@ -365,7 +383,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
         s.skipped_returning++;
         return 'done';
       }
-      const mail = await buildMail(c.kind, p, deps, now);
+      const mail = await buildMail(c.kind, p, deps, now, noteDropped);
       if (!mail) {
         await giveBack();
         s.skipped_no_data++;

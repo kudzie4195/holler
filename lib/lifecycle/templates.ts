@@ -206,7 +206,7 @@ function welcomeMatchesLang(o: WelcomeMatches, lang: Lang): Rendered {
   const shown = items.length === 0 ? '' : items.length === 1 && o.total === 1 ? t(lang, 'life.w.here_one') : t(lang, 'life.w.here_many', { n: items.length });
   const caveat = t(lang, 'life.w.caveat');
   const source = t(lang, 'life.w.source');
-  const tail = o.total > items.length ? t(lang, 'life.w.tail') : '';
+  const tail = o.total > items.length ? t(lang, items.length === 0 ? 'life.w.tail_all' : 'life.w.tail') : '';
   const open = t(lang, 'email.open_feed');
   const body = para(lead) + (shown ? para(shown) : '') + (items.length ? itemsHtmlLang(items, lang) : '') + para(source) + para(caveat) + (tail ? para(tail) : '') + button(o.feedUrl, open);
   const bodyText = `${lead}\n\n${shown ? `${shown}\n\n` : ''}${items.length ? `${itemsTextLang(items, lang)}\n\n` : ''}${source}\n\n${caveat}\n\n${tail ? `${tail}\n\n` : ''}${open}: ${o.feedUrl}\n`;
@@ -243,7 +243,8 @@ function trialEndingLang(o: TrialEnding, lang: Lang): Rendered {
   const plans = o.plans ?? planLines();
   const subject = t(lang, 'life.e.subject', { n: TRIAL_ENDING_DAYS });
   const lead = t(lang, 'life.e.first', { n: TRIAL_ENDING_DAYS });
-  const found = items.length === 0 ? t(lang, 'life.e.none') : items.length === 1 ? t(lang, 'life.e.one') : t(lang, 'life.e.many', { n: items.length });
+  const feedOnly = o.feedOnly ?? 0;
+  const found = items.length === 0 && feedOnly > 0 ? t(lang, feedOnly === 1 ? 'life.e.feed_only_one' : 'life.e.feed_only_many', { n: countLang(lang, feedOnly) }) : items.length === 0 ? t(lang, 'life.e.none') : items.length === 1 ? t(lang, 'life.e.one') : t(lang, 'life.e.many', { n: items.length });
   const plansIntro = t(lang, 'life.e.plans');
   const renew = t(lang, 'life.e.renew');
   const pick = t(lang, 'app.pick_plan');
@@ -285,7 +286,7 @@ export function renderWelcomeMatches(o: WelcomeMatches): Rendered {
     'A record shows that something happened, but it does not show that anyone needs work or that a job is still open. Treat each one as a starting point.';
   const source =
     'These come from public sources such as city permit offices, the National Weather Service and city 311 systems, so every line is something an agency already published.';
-  const tail = o.total > items.length ? 'The rest are in your account.' : '';
+  const tail = o.total > items.length ? (items.length === 0 ? 'Open your account to see what is there.' : 'The rest are in your account.') : '';
   const body =
     para(lead) +
     (shown ? para(shown) : '') +
@@ -376,6 +377,11 @@ export interface TrialEnding extends Common {
   /** Whole days left as stated in the email (trialEndingDays). Default TRIAL_ENDING_DAYS. */
   daysLeft?: number;
   plans?: PlanLine[];
+  /**
+   * Round 35: records that match the member's trades and area but are in the feed only (no alert), when no alert is listed. Absent or 0: the
+   * old wording. The email then says the records exist instead of saying nothing matched.
+   */
+  feedOnly?: number;
 }
 
 export function renderTrialEnding(o: TrialEnding): Rendered {
@@ -384,8 +390,11 @@ export function renderTrialEnding(o: TrialEnding): Rendered {
   const plans = o.plans ?? planLines();
   const days = o.daysLeft ?? TRIAL_ENDING_DAYS;
   const lead = `Your free trial ends in about ${days} days, and after that your alerts stop unless you pick a plan.`;
+  const feedOnly = o.feedOnly ?? 0;
   const found =
-    items.length === 0
+    items.length === 0 && feedOnly > 0
+      ? `Your account has ${count(feedOnly, 'public record that matches', 'public records that match')} your trades and area. ${feedOnly === 1 ? 'It is' : 'They are'} feed only, not ${feedOnly === 1 ? 'an alert' : 'alerts'}, so ${feedOnly === 1 ? 'it is not' : 'none is'} listed here.`
+      : items.length === 0
       ? 'Holler has not matched anything to your trades and area yet, and it will keep watching until the trial ends.'
       : items.length === 1
         ? 'Here is the alert that looks strongest for your trades so far.'

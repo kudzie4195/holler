@@ -24,7 +24,7 @@ import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
-import { SAM_SELECT, hasSetAsideLine, samCardLine } from '@/lib/signals/sam-notice';
+import { SAM_SELECT, hasSetAsideLine, samCardLine, samOpenerField } from '@/lib/signals/sam-notice';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
@@ -393,6 +393,8 @@ export async function GET(req: Request) {
         ...weatherCardFields(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
         hasSetAside: hasSetAsideLine(s.source, s.samSetAside, lang),
+        // Round 35: an early notice or a planned sole source opens with its own words, not "Federal bid in" (null while the switch is off).
+        ...samOpenerField(s),
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,
       }));

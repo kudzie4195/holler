@@ -12,6 +12,7 @@ import { bidSourceLinkLabelLang, cardBriefLang } from '../signals/brief-i18n';
 import { isStageUpdate, stageUpdateLine, stageUpdateMeta, stageUpdateSubject } from '../signals/stage';
 import { lowerFirst, t, type DictKey, type Lang } from '../i18n';
 import { fixedTextLang, localizeTitle } from '../signals/title-i18n';
+import { samOpenerTitle, type SamOpener } from '../signals/sam-notice';
 import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
@@ -70,6 +71,12 @@ export interface DigestItem {
   bidLine?: string | null;
   /** A federal notice whose card line names a set-aside (HOLLER_SAM_LABELS_ENABLED on): the closing line then does not say a listing shows nobody's eligibility. */
   hasSetAside?: boolean;
+  /**
+   * Round 35: 'early' for a Sources Sought / Presolicitation notice, 'sole' for a planned sole source (samOpenerOf, set by the notify route only
+   * while HOLLER_SAM_LABELS_ENABLED is on). The card then opens "Early notice from a federal agency in ..." or "Planned sole source in ..."
+   * instead of "Federal bid in ...", and says "the notice is listed" instead of "the bid is listed". Absent or null: nothing changes.
+   */
+  samOpener?: SamOpener | null;
   /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes "Why it matters" trade-specific. */
   trade?: string | null;
   /** NYC no-heat items only: data.managerName / data.managerRole (company names only, checked again by cardBrief). */
@@ -381,7 +388,8 @@ function tidyCutTitle(s: string): string {
  * ("sewage_back-up_discharge", review P3), a stored cut at a whole word, and (anything but a building permit) no house number.
  */
 function displayTitle(it: DigestItem, lang: Lang): string {
-  let title = withoutZeroCity(tidyCutTitle(noDash(localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' ')));
+  const named = it.samOpener ? samOpenerTitle(it.title, it.samOpener, lang) : null;
+  let title = withoutZeroCity(tidyCutTitle(noDash(named && named !== it.title ? named : localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' ')));
   const fam = familyOf(it);
   if (fam !== 'permit' && !NO_BLOCK_REWRITE.includes(fam)) {
     const nyc = /nyc/i.test(it.source ?? '') || /^New York City\b/i.test(it.place ?? '');
@@ -391,6 +399,17 @@ function displayTitle(it: DigestItem, lang: Lang): string {
         t(lang, 'sum.sale_block', { n: houseBlock(num, after, nyc), street: street.trim() }));
   }
   return title;
+}
+
+/**
+ * Round 35: the "what is uncertain" line of an early notice or a planned sole source says "the notice is listed" (not "the bid is listed"), and
+ * a sole source does not say "your eligibility is not known" as if the member could take part. Any other card: the line as it was.
+ */
+function samUncertain(it: DigestItem, uncertain: string, lang: Lang): string {
+  if (!it.samOpener) return uncertain;
+  let out = uncertain.replace(t(lang, 'brief.known.federal-bid'), t(lang, 'sam.email.known_notice'));
+  if (it.samOpener === 'sole') out = out.replace(t(lang, 'brief.unknown.federal-bid'), t(lang, 'sam.email.unknown_sole'));
+  return out;
 }
 
 /** Round 24 FIX2 (review P3-6): "Federal bid in 0, MI: ..." (a city stored as "0") reads "Federal bid in MI: ...". */
@@ -442,8 +461,10 @@ function titleNamesTown(place: string, titles: readonly string[]): boolean {
 }
 
 /** The chip's words: "Act now" on its own, or "Act now . Deadline: Dec 5, 2026" when the record published one. No chip without a label. */
-export function digestChip(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lang = 'en'): { text: string; strong: boolean } | null {
+export function digestChip(it: Pick<DigestItem, 'label' | 'deadline'> & { samOpener?: SamOpener | null }, lang: Lang = 'en'): { text: string; strong: boolean } | null {
   if (!it.label || it.label === 'context') return null;
+  // Round 35: a planned sole source is not open for offers, so its chip never says "Work may follow".
+  if (it.samOpener === 'sole') return { text: t(lang, 'sam.email.chip_sole'), strong: false };
   const label = chipLabel(it.label, lang);
   if (it.label !== 'act_now') return { text: label, strong: false };
   const d = it.deadline ? deadlineLineLang(it.deadline, lang) : null;
@@ -458,6 +479,7 @@ export function digestChip(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lan
  */
 export function digestWhat(it: DigestItem, lang: Lang = 'en'): string {
   const fam = familyOf(it);
+  if (fam === 'federal-bid' && it.samOpener) return t(lang, it.samOpener === 'early' ? 'sam.email.what_early' : 'sam.email.what_sole');
   if (fam === 'federal-bid') return t(lang, it.label === 'act_now' ? 'email.what.bid' : 'email.what.federal_bid');
   if (it.subtype === 'bid') return t(lang, 'email.what.bid');
   if (fam === 'permit') {
@@ -540,7 +562,8 @@ export function digestAction(it: DigestItem, appUrl: string, lang: Lang = 'en'):
  */
 function digestReasons(it: DigestItem, br: CardBrief, lang: Lang): string[] {
   const stage = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
-  const why = it.note && lang === 'en' ? noDash(it.note) : quotedOrderLang(noDash(br.why), lang);
+  // Round 35: a planned sole source says what it is, not "it may not be open yet" (nor an AI note about the trade).
+  const why = it.samOpener === 'sole' ? t(lang, 'sam.sole.intent_line') : it.note && lang === 'en' ? noDash(it.note) : quotedOrderLang(noDash(br.why), lang);
   // Round 33: an NWS alert's own hail size and gust go first (HOLLER_HAIL_ROUTING_ENABLED; null otherwise).
   if (br.alertLine) return [noDash(br.alertLine), why];
   return stage ? [noDash(stage), why] : [why];
@@ -576,13 +599,24 @@ const HONESTY_KINDS: readonly { key: DictKey; families: readonly BriefFamily[] }
   { key: 'email.honesty.weather', families: ['weather-alert', 'storm-report', 'disaster', 'quake'] },
 ];
 
+/**
+ * The closing line for the bid kind. Round 35: when every bid card in the email is an early notice or a planned sole source (samOpener) the line
+ * says a notice is not open for offers, not "a bid listing ..."; otherwise round 33's set-aside line when a card shows a set-aside, else the old line.
+ */
+function bidHonestyKey(items: readonly DigestItem[]): DictKey {
+  const bidFamilies = HONESTY_KINDS.find((k) => k.key === 'email.honesty.bid')!.families;
+  const bids = items.filter((it) => bidFamilies.includes(familyOf(it)));
+  if (bids.length > 0 && bids.every((it) => !!it.samOpener)) return 'sam.email.honesty_notice';
+  return items.some((it) => it.hasSetAside) ? 'sam.email.honesty_bid_setaside' : 'email.honesty.bid';
+}
+
 export function digestHonesty(items: readonly DigestItem[], lang: Lang = 'en'): string {
   const present = new Set(items.map(familyOf));
   const lead = present.has('resident-request') || present.has('public-post') ? 'email.honesty.opening_mixed' : 'email.honesty.opening';
   const anyListing = items.some((it) => it.contact?.listing && (it.contact.listing.phone || httpsSite(it.contact.listing)));
   return [
     t(lang, lead),
-    ...HONESTY_KINDS.filter((k) => k.families.some((f) => present.has(f))).map((k) => t(lang, k.key === 'email.honesty.bid' && items.some((it) => it.hasSetAside) ? 'sam.email.honesty_bid_setaside' : k.key)),
+    ...HONESTY_KINDS.filter((k) => k.families.some((f) => present.has(f))).map((k) => t(lang, k.key === 'email.honesty.bid' ? bidHonestyKey(items) : k.key)),
     anyListing ? t(lang, 'email.honesty.listing') : null,
   ]
     .filter(Boolean)
@@ -752,7 +786,7 @@ export function renderDigest(opts: {
       managedBy: br.managedBy ? noDash(br.managedBy) : null,
       // Round 24 (review P1-4): every card but a permit keeps its own "what is uncertain" line. A permit's ("does not mean the owner is
       // choosing a vendor") is said once, in the closing line, whenever a permit card is in the email.
-      uncertain: familyOf(it) === 'permit' ? null : noDash(br.uncertain),
+      uncertain: familyOf(it) === 'permit' ? null : noDash(samUncertain(it, br.uncertain, lang)),
       act: digestAction(it, opts.appUrl, lang),
       // A resident request has no public source page of its own, so it gets no "public source" link (it links to the form instead).
       source: familyOf(it) === 'resident-request' ? null : br.href,
