@@ -19,12 +19,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { rolldown } from 'rolldown';
 import { BriefBlock, type BriefBlockItem } from '@/components/feed/brief-block';
 import { labelFor, storefrontKindOfName } from '@/lib/signals/lead-rules';
+import { requestsEnabled } from '@/lib/requests/enabled';
+import { probationFetchOn } from '@/lib/signals/probation-fetch';
+import { lookupSettings } from '@/lib/enrich/business-lookup';
+import { previewFixturesEnabled } from '@/lib/seo/home-live';
+import { sandboxGrantsAllowed } from '@/lib/storebilling/revenuecat';
 import { INLINED_SWITCHES, OTHER_SWITCHES, inlinedSwitchEnv, inlinedSwitchValue, normalizeSwitchEnv, switchOn, type InlinedSwitch } from '@/lib/build-switches';
 import {
   CLIENT_ENV_ALLOW,
   MIN_SECRET_LENGTH,
   allowListProblems,
+  destructurePatterns,
   envKeysFromSource,
+  hasShortSecret,
+  inlinedSwitchesFromSource,
+  valueHasCredentials,
   isAllowed,
   isSecretName,
   main as checkMain,
@@ -36,6 +45,8 @@ import {
 } from '@/scripts/check-client-switches.mjs';
 import { ENV_KEYS } from '@/lib/env';
 import type { CategoryId } from '@/lib/signals/categories';
+
+vi.mock('server-only', () => ({}));
 
 const ROOT = join(__dirname, '../..');
 const nodeRequire = createRequire(join(ROOT, 'package.json'));
@@ -206,6 +217,52 @@ describe('the switches the browser reads are inlined at build', () => {
     expect(inlinedSwitchValue('HOLLER_PREVIEW_FIXTURES', ' 1')).toBe('');
     expect(inlinedSwitchValue('HOLLER_PREVIEW_FIXTURES', 'true')).toBe('');
     expect(normalizeSwitchEnv({ REQUESTS_ENABLED: '0', HOLLER_PROBATION_FETCH: undefined, REVENUECAT_ALLOW_SANDBOX: 'sk_live_raw' })).toEqual({ REQUESTS_ENABLED: '0', HOLLER_PROBATION_FETCH: '1', REVENUECAT_ALLOW_SANDBOX: '' });
+  });
+
+  describe('R35 P2-3: the mapping of each older switch is held to its REAL reader function', () => {
+    // What each reader answers for the variable's raw text, and for the text inlinedSwitchValue would put in its place (the browser reads that).
+    // An unset variable and "" are the same input for every reader below (`value ?? ''`), so `undefined` is passed as "" to the readers whose
+    // parameter defaults to process.env.
+    const READERS: Record<string, (raw: string) => boolean> = {
+      REQUESTS_ENABLED: (v) => requestsEnabled(v), // lib/requests/enabled.ts
+      HOLLER_PROBATION_FETCH: (v) => probationFetchOn(v), // lib/signals/probation-fetch.ts
+      HOLLER_LOOKUP_DRY_RUN: (v) => lookupSettings({ HOLLER_LOOKUP_DRY_RUN: v }).dryRun, // lib/enrich/business-lookup.ts
+      HOLLER_PREVIEW_FIXTURES: (v) => previewFixturesEnabled({ HOLLER_PREVIEW_FIXTURES: v }), // lib/seo/home-live.ts (VERCEL unset)
+      REVENUECAT_ALLOW_SANDBOX: (v) => sandboxGrantsAllowed({ REVENUECAT_ALLOW_SANDBOX: v }), // lib/storebilling/revenuecat.ts
+    };
+    const words = ['0', '1', '2', 'true', 'false', 'on', 'off', 'yes', 'no', 'y', 'n', 'enabled', 'disabled', 'null', 'undefined', '01', '00', '-1', '١'];
+    const spaces = ['', ' ', '  ', '\t', '\n', '\r\n', ' ', ' ', '﻿'];
+    const inputs = (): string[] => {
+      const out = new Set<string>(['']);
+      for (const w of words) for (const mode of [(x: string) => x, (x: string) => x.toUpperCase(), (x: string) => x[0].toUpperCase() + x.slice(1)]) for (const l of spaces) for (const r of spaces) out.add(`${l}${mode(w)}${r}`);
+      let seed = 35; // a fixed pseudo-random sequence, so a failure repeats
+      const next = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+      const alphabet = '01 \tonfyestruealsOFNYES-_x';
+      for (let i = 0; i < 1500; i++) out.add(Array.from({ length: 1 + Math.floor(next() * 6) }, () => alphabet[Math.floor(next() * alphabet.length)]).join(''));
+      return [...out];
+    };
+
+    it('covers exactly the five names of OTHER_SWITCHES (a sixth needs its reader here)', () => {
+      expect(Object.keys(READERS).sort()).toEqual(Object.keys(OTHER_SWITCHES).sort());
+    });
+    for (const name of Object.keys(READERS)) {
+      it(`${name}: the reader gives the same answer for the raw text and for the inlined text, on every input`, () => {
+        const reader = READERS[name];
+        const all = inputs();
+        expect(all.length).toBeGreaterThan(1500);
+        const wrong: string[] = [];
+        for (const raw of all) {
+          const inlined = inlinedSwitchValue(name, raw);
+          expect(['1', '0', ''], `${name} value`).toContain(inlined);
+          if (reader(raw) !== reader(inlined)) wrong.push(JSON.stringify(raw));
+        }
+        expect(wrong.slice(0, 5), `${name}: inputs where the reader and the inlined text disagree`).toEqual([]);
+        // The unset variable is the same input as "".
+        expect(reader(inlinedSwitchValue(name, undefined)), `${name} unset`).toBe(reader(''));
+        // Unset and the exact words, as a plain control that the readers are not constant functions.
+        expect(new Set(all.map((r) => reader(r))).size, `${name}: reader is not constant over the inputs`).toBe(2);
+      });
+    }
   });
 
   it('every reader uses the plain member expression Next can replace (no `?.`, no computed lookup) in app code', () => {
@@ -429,7 +486,7 @@ describe('scripts/check-client-switches.mjs (the build-chunk check, run by npm r
   });
 
   it('allows the library names of CLIENT_ENV_ALLOW (each with its library), and nothing near them', () => {
-    expect(Object.keys(CLIENT_ENV_ALLOW).sort()).toEqual(['POSTHOG_RELEASE_ID', 'REACT_APP_VERCEL_OBSERVABILITY_BASEPATH', 'REACT_APP_VERCEL_OBSERVABILITY_CLIENT_CONFIG', 'npm_package_name', 'npm_package_version']);
+    expect(Object.keys(CLIENT_ENV_ALLOW).sort()).toEqual(['POSTHOG_RELEASE_ID', 'REACT_APP_VERCEL_OBSERVABILITY_BASEPATH', 'REACT_APP_VERCEL_OBSERVABILITY_CLIENT_CONFIG', 'npm_package_name']);
     for (const [name, why] of Object.entries(CLIENT_ENV_ALLOW)) expect(why.length, name).toBeGreaterThan(20);
     // The shapes the published files have (node_modules/@supabase/ssr, @vercel/analytics, @vercel/speed-insights, posthog-js).
     const lib = [
@@ -437,7 +494,6 @@ describe('scripts/check-client-switches.mjs (the build-chunk check, run by npm r
       'function getBasePath(){return"undefined"==typeof process||"undefined"==typeof process.env?void 0:process.env.REACT_APP_VERCEL_OBSERVABILITY_BASEPATH}',
       'function getConfigString(){return process.env.REACT_APP_VERCEL_OBSERVABILITY_CLIENT_CONFIG}',
       'if("u">typeof process){var t;const i=null===(t=process.env.POSTHOG_RELEASE_ID)||void 0===t?void 0:t.trim();if(i)return i}',
-      'let{npm_package_version:v}=process.env;',
       'x=process.env.NEXT_PUBLIC_VERCEL_OBSERVABILITY_BASEPATH',
       // Verbatim from the scratch build with @vercel/analytics, @vercel/speed-insights and posthog-js (gates log build-B3): the guard compares env with undefined.
       'basePath:e.basePath??function(){if(void 0!==M.default&&void 0!==M.default.env)return M.default.env.REACT_APP_VERCEL_OBSERVABILITY_BASEPATH}(),...e},e.configString??function(){if(void 0!==M.default&&void 0!==M.default.env)return M.default.env.REACT_APP_VERCEL_OBSERVABILITY_CLIENT_CONFIG}())',
@@ -447,7 +503,7 @@ describe('scripts/check-client-switches.mjs (the build-chunk check, run by npm r
     for (const cmp of ['void 0!==t.default.env', 'void 0===t.default.env', 'x!=process.env', 'x==process.env', 'a<=process.env', 'a>=process.env']) expect(readNames(`if(${cmp})f()`), cmp).toEqual([]);
     for (const text of lib) expect(readNames(text), text).toEqual([]);
     // Near misses and the forbidden names still fail, even when someone lists them.
-    for (const name of ['npm_package_nam', 'NPM_PACKAGE_NAME', 'npm_package_name2', 'npm_config_cache', 'VERCEL_URL', 'VERCEL_AUTOMATION_BYPASS_SECRET', 'POSTHOG_RELEASE_IDS', 'LANG']) {
+    for (const name of ['npm_package_nam', 'NPM_PACKAGE_NAME', 'npm_package_version', 'npm_package_name2', 'npm_config_cache', 'VERCEL_URL', 'VERCEL_AUTOMATION_BYPASS_SECRET', 'POSTHOG_RELEASE_IDS', 'LANG']) {
       expect(readNames(`x=process.env.${name}`), name).toEqual([`env-member:${name}`]);
     }
     for (const name of ['HOLLER_HAIL_ROUTING_ENABLED', 'HOLLER_ROAD_WORDS_ENABLED', 'CRON_SECRET', 'STRIPE_SECRET_KEY', 'SAM_API_KEY', 'DATAFORSEO_PASSWORD', 'FIREBASE_SERVICE_ACCOUNT_JSON', 'resend_api_key_holler', 'INDEXNOW_KEY', 'REQUESTS_ENABLED', 'SUPPORT_EMAIL']) {
@@ -516,36 +572,217 @@ describe('scripts/check-client-switches.mjs (the build-chunk check, run by npm r
     expect(hit('const x = process.env?.HOLLER_SAM_LABELS_ENABLED_OTHER;')).toEqual([]);
   });
 
-  it('main() fails when a server bundle still reads an inlined name, and passes when the browser is clean and the server was replaced', () => {
-    const base = mkdtempSync(join(tmpdir(), 'r34-check-'));
+  it('takes the inlined names from INLINED_SWITCHES in lib/build-switches.ts, as text', () => {
+    const src = readFileSync(join(ROOT, 'lib/build-switches.ts'), 'utf8');
+    expect(inlinedSwitchesFromSource(src)).toEqual([...INLINED_SWITCHES]);
+    expect(inlinedSwitchesFromSource("export const INLINED_SWITCHES = ['A_ENABLED', 'B_ENABLED'] as const;")).toEqual(['A_ENABLED', 'B_ENABLED']);
+    expect(inlinedSwitchesFromSource('export const OTHER = 1;')).toBeNull();
+  });
+
+  /** A project folder and a build folder as a VERCEL build leaves them: the real lib/build-switches.ts, and a manifest with NO config.env. */
+  function vercelLikeBuild(base: string, manifest: 'no-env' | 'no-file') {
+    const next = join(base, '.next');
+    mkdirSync(join(next, 'static', 'chunks'), { recursive: true });
+    mkdirSync(join(next, 'server', 'chunks'), { recursive: true });
+    writeFileSync(join(next, 'static', 'chunks', 'a.js'), 'n=function(e=void 0!==nD.default?"1":void 0){return e}');
+    if (manifest === 'no-env') writeFileSync(join(next, 'required-server-files.json'), JSON.stringify({ config: { configFile: 'next.config.ts' } }));
+    writeFileSync(join(next, 'server', 'chunks', 'ok.js'), 'x=""==="1"?1:2;t="HOLLER_ROAD_WORDS_ENABLED is on"');
+    const proj = join(base, 'proj');
+    mkdirSync(join(proj, 'lib'), { recursive: true });
+    writeFileSync(join(proj, 'lib', 'build-switches.ts'), readFileSync(join(ROOT, 'lib/build-switches.ts'), 'utf8'));
+    writeFileSync(join(proj, 'lib', 'ok.ts'), 'export const a = process.env.HOLLER_ROAD_WORDS_ENABLED;\n');
+    return { next, proj, staticDir: join(next, 'static') };
+  }
+
+  for (const manifest of ['no-env', 'no-file'] as const) {
+    it(`a build WITHOUT config.env (${manifest}, as on Vercel): the server rule and the source rule still run, and still fail`, () => {
+      const base = mkdtempSync(join(tmpdir(), 'r35-check-'));
+      try {
+        const { next, proj, staticDir } = vercelLikeBuild(base, manifest);
+        const log: string[] = [];
+        expect(checkMain([staticDir], (l: string) => log.push(l), proj)).toBe(0);
+        expect(log.some((l) => l.includes('1 server files checked for an unreplaced read of 3 inlined name(s) (3 from lib/build-switches.ts, none from the build manifest)'))).toBe(true);
+        expect(log.some((l) => l.includes('source files checked for process.env?.NAME on 3 inlined name(s)'))).toBe(true);
+        expect(log.join('\n')).not.toContain('not checked');
+        // The server rule.
+        writeFileSync(join(next, 'server', 'chunks', 'bad.js'), 'x=e.default.env?.HOLLER_ROAD_WORDS_ENABLED');
+        const bad: string[] = [];
+        expect(checkMain([staticDir], (l: string) => bad.push(l), proj)).toBe(1);
+        expect(bad.some((l) => l.startsWith('FAIL inlined-read-left HOLLER_ROAD_WORDS_ENABLED in server/chunks/bad.js'))).toBe(true);
+        expect(bad.join('\n')).toContain('CLIENT_ENV_ALLOW');
+        // The source rule: a project whose lib/ writes process.env?.NAME for an inlined name fails the build, with the file and line.
+        rmSync(join(next, 'server', 'chunks', 'bad.js'));
+        writeFileSync(join(proj, 'lib', 'bad.ts'), 'const x = 1;\nexport const b = process.env?.HOLLER_ROAD_WORDS_ENABLED;\n');
+        const src: string[] = [];
+        expect(checkMain([staticDir], (l: string) => src.push(l), proj)).toBe(1);
+        expect(src.some((l) => l.startsWith('FAIL inlined-optional-read HOLLER_ROAD_WORDS_ENABLED in lib/bad.ts:2'))).toBe(true);
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it('a manifest that lists an extra inlined name adds it to the names checked; the names of the source stay', () => {
+    const base = mkdtempSync(join(tmpdir(), 'r35-check-'));
     try {
-      const next = join(base, '.next');
-      mkdirSync(join(next, 'static', 'chunks'), { recursive: true });
-      mkdirSync(join(next, 'server', 'chunks'), { recursive: true });
-      writeFileSync(join(next, 'static', 'chunks', 'a.js'), 'n=function(e=void 0!==nD.default?"1":void 0){return e}');
-      writeFileSync(join(next, 'required-server-files.json'), JSON.stringify({ config: { env: { HOLLER_ROAD_WORDS_ENABLED: '1' } } }));
-      writeFileSync(join(next, 'server', 'chunks', 'ok.js'), 'x=""==="1"?1:2;t="HOLLER_ROAD_WORDS_ENABLED is on"');
+      const { next, proj, staticDir } = vercelLikeBuild(base, 'no-env');
+      writeFileSync(join(next, 'required-server-files.json'), JSON.stringify({ config: { env: { HOLLER_OTHER_ENABLED: '1' } } }));
+      writeFileSync(join(next, 'server', 'chunks', 'bad.js'), 'x=e.default.env?.HOLLER_OTHER_ENABLED;y=e.default.env?.HOLLER_SAM_LABELS_ENABLED');
       const log: string[] = [];
-      expect(checkMain([join(next, 'static')], (l: string) => log.push(l))).toBe(0);
-      expect(log.some((l) => l.includes('1 server files checked'))).toBe(true);
-      writeFileSync(join(next, 'server', 'chunks', 'bad.js'), 'x=e.default.env?.HOLLER_ROAD_WORDS_ENABLED');
-      const bad: string[] = [];
-      expect(checkMain([join(next, 'static')], (l: string) => bad.push(l))).toBe(1);
-      expect(bad.some((l) => l.startsWith('FAIL inlined-read-left HOLLER_ROAD_WORDS_ENABLED in server/chunks/bad.js'))).toBe(true);
-      expect(bad.join('\n')).toContain('CLIENT_ENV_ALLOW');
-      // The source rule: a project whose lib/ writes process.env?.NAME for an inlined name fails the build, with the file and line.
-      rmSync(join(next, 'server', 'chunks', 'bad.js'));
-      const proj = join(base, 'proj');
-      mkdirSync(join(proj, 'lib'), { recursive: true });
-      writeFileSync(join(proj, 'lib', 'ok.ts'), 'export const a = process.env.HOLLER_ROAD_WORDS_ENABLED;\n');
-      expect(checkMain([join(next, 'static')], () => {}, proj)).toBe(0);
-      writeFileSync(join(proj, 'lib', 'bad.ts'), 'const x = 1;\nexport const b = process.env?.HOLLER_ROAD_WORDS_ENABLED;\n');
-      const src: string[] = [];
-      expect(checkMain([join(next, 'static')], (l: string) => src.push(l), proj)).toBe(1);
-      expect(src.some((l) => l.startsWith('FAIL inlined-optional-read HOLLER_ROAD_WORDS_ENABLED in lib/bad.ts:2'))).toBe(true);
+      expect(checkMain([staticDir], (l: string) => log.push(l), proj)).toBe(1);
+      expect(log.some((l) => l.startsWith('FAIL inlined-read-left HOLLER_OTHER_ENABLED'))).toBe(true);
+      expect(log.some((l) => l.startsWith('FAIL inlined-read-left HOLLER_SAM_LABELS_ENABLED'))).toBe(true);
+      expect(log.some((l) => l.includes('of 4 inlined name(s) (3 from lib/build-switches.ts, 1 from the build manifest)'))).toBe(true);
     } finally {
       rmSync(base, { recursive: true, force: true });
     }
+  });
+
+  it('fails loudly (exit 1, inlined-names-unknown) when INLINED_SWITCHES cannot be read, instead of skipping the two rules', () => {
+    const base = mkdtempSync(join(tmpdir(), 'r35-check-'));
+    try {
+      const { proj, staticDir } = vercelLikeBuild(base, 'no-env');
+      for (const content of [null, 'export const NOTHING = 1;\n']) {
+        if (content === null) rmSync(join(proj, 'lib', 'build-switches.ts'));
+        else writeFileSync(join(proj, 'lib', 'build-switches.ts'), content);
+        const log: string[] = [];
+        expect(checkMain([staticDir], (l: string) => log.push(l), proj)).toBe(1);
+        expect(log.some((l) => l.startsWith('FAIL inlined-names-unknown'))).toBe(true);
+      }
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it('R35 P2-1: a destructuring with defaults or nested patterns is a read (the form SWC wrote in a real build)', () => {
+    // Verbatim from the round 34 review build (R3): `{}` default, then the watched name.
+    expect(readNames('let{npm_package_name:e={},HOLLER_LSR_ENABLED:t}=a.default.env;return 1')).toEqual(['env-destructure:HOLLER_LSR_ENABLED']);
+    expect(readNames('const { npm_package_name: e = {}, CRON_SECRET: c = "x" } = process.env;')).toEqual(['env-destructure:CRON_SECRET']);
+    expect(readNames('let{A_NEST:{b:c},HOLLER_BIDS_ENABLED:d}=process.env')).toEqual(['env-destructure:A_NEST', 'env-destructure:HOLLER_BIDS_ENABLED']);
+    expect(readNames('let{X:e="}",HOLLER_LSR_ENABLED:t}=process.env')).toEqual(['env-destructure:X', 'env-destructure:HOLLER_LSR_ENABLED']); // a brace inside a default string
+    expect(readNames('let{X:e="a,b",Y:f=[1,2]}=process.env')).toEqual(['env-destructure:X', 'env-destructure:Y']); // commas inside a default
+    expect(readNames('let{"HOLLER_LSR_ENABLED":t={}}=process.env')).toEqual(['env-destructure:HOLLER_LSR_ENABLED']);
+    // The whole object, or a computed key, is never a harmless read.
+    expect(readNames('let{a=1,...rest}=process.env')).toEqual(['env-destructure:a', 'env-alias:']);
+    expect(readNames('let{[k]:v}=process.env')).toEqual(['env-dynamic:']);
+    // Allowed names only: not a read, and not reported as an alias either.
+    expect(readNames('let{npm_package_name:e={}}=a.default.env;')).toEqual([]);
+    expect(readNames('const {NODE_ENV, NEXT_PUBLIC_X: x = {}} = process.env;')).toEqual([]);
+    // A pattern that cannot be taken apart (no opening brace in reach) fails closed as an alias instead of passing.
+    expect(readNames(`${'a'.repeat(2000)}}=process.env`)).toEqual(['env-alias:']);
+    const found = destructurePatterns('let{npm_package_name:e={},HOLLER_LSR_ENABLED:t}=a.default.env;');
+    expect(found).toHaveLength(1);
+    expect(found[0].names).toEqual(['npm_package_name', 'HOLLER_LSR_ENABLED']);
+    expect(destructurePatterns('if(x){y()}else{z()} const q = 1')).toEqual([]);
+  });
+
+  describe('R35 P2-2: secret masking', () => {
+    const rec = (text: string, secrets: Record<string, string>) => scanChunk('a.js', text, { envKeys, secrets });
+    const printedOf = (r: ReturnType<typeof scanChunk>) => JSON.stringify(r);
+    // A Firebase service account JSON as it is stored in an environment variable: the private key holds backslash-n pairs.
+    const key = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj';
+    const firebase = JSON.stringify({ type: 'service_account', project_id: 'holler-demo', private_key: `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----\n`, client_email: 'svc@holler-demo.iam.gserviceaccount.com' });
+    const literal = (value: string, q: string) => value.replaceAll('\\', '\\\\').replaceAll(q, `\\${q}`);
+
+    it('finds and masks a value with backslashes and double quotes written as a SINGLE-quoted literal (SWC does this), and in double and template literals', () => {
+      expect(firebase).toContain('\\n'); // the stored value really holds backslash-n pairs
+      for (const q of ["'", '"', '`']) {
+        const chunk = `x=process.env.HOLLER_BIDS_ENABLED;children:${q}${literal(firebase, q)}${q};y=process.env.HOLLER_LSR_ENABLED`;
+        const r = rec(chunk, { FIREBASE_SERVICE_ACCOUNT_JSON: firebase });
+        expect(r.reads.some((x) => x.rule === 'secret-value' && x.name === 'FIREBASE_SERVICE_ACCOUNT_JSON'), q).toBe(true);
+        const printed = printedOf(r);
+        for (const piece of [key, key.slice(0, 20), 'BEGIN PRIVATE KEY', 'svc@holler-demo', 'holler-demo']) expect(printed, `${q} ${piece}`).not.toContain(piece);
+        expect(maskSecrets(chunk, { FIREBASE_SERVICE_ACCOUNT_JSON: firebase })).not.toContain(key);
+      }
+      // A slash written `\/`, a quote inside the value, a template literal with ${
+      for (const value of ['https://user.example/path/with/slashes-and-more', "it's-a-secret-with-quote", 'a`b${c}-secret-value-123']) {
+        for (const q of ["'", '"', '`']) {
+          const body = literal(value, q);
+          const chunk = `k=${q}${q === '`' ? body.replaceAll('${', '\\${') : body}${q}`;
+          expect(rec(chunk, { SOME_API_KEY: value }).reads.map((x) => x.name), `${value} in ${q}`).toEqual(['SOME_API_KEY']);
+        }
+        expect(rec(`k="${value.replaceAll('/', '\\/')}"`, { SOME_API_KEY: value }).reads.map((x) => x.name), value).toEqual(['SOME_API_KEY']);
+      }
+    });
+
+    it('through main(): the single-quoted Firebase value is found, its key text is in no log line, only the NAME is printed', () => {
+      vi.stubEnv('FIREBASE_SERVICE_ACCOUNT_JSON', firebase);
+      const dir = mkdtempSync(join(tmpdir(), 'r35-check-'));
+      try {
+        writeFileSync(join(dir, 'a.js'), `x=process.env.HOLLER_BIDS_ENABLED;children:'${literal(firebase, "'")}'`);
+        const log: string[] = [];
+        expect(checkMain([dir], (l: string) => log.push(l))).toBe(1);
+        const all = log.join('\n');
+        expect(all).toContain('FAIL secret-value FIREBASE_SERVICE_ACCOUNT_JSON');
+        for (const piece of [key, key.slice(0, 16), 'BEGIN PRIVATE KEY', 'svc@holler-demo']) expect(all, piece).not.toContain(piece);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('knows the secret names the word list missed: DATABASE_URL, POSTGRES_URL*, API_KEYS, PASSPHRASE, *_PRIVATE_KEY, JWT, DSN, ACCESSKEY', () => {
+      for (const n of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_URL_NON_POOLING', 'POSTGRES_PRISMA_URL', 'DB_URL', 'MONGODB_URI', 'REDIS_URL', 'SUPABASE_DB_URL', 'API_KEYS', 'STRIPE_KEYS', 'PASSPHRASE', 'SSH_PASSPHRASE', 'DEPLOY_PRIVATE_KEY', 'APP_PRIVATE_KEY', 'PRIVATE_KEY', 'SUPABASE_JWT', 'SENTRY_DSN', 'AWS_ACCESSKEY', 'AWS_ACCESS_KEY_ID']) {
+        expect(isSecretName(n), n).toBe(true);
+        expect(Object.keys(secretValues({ [n]: 'value-of-the-secret-1' })), n).toEqual([n]);
+      }
+      for (const n of ['SITE_URL', 'NEXT_PUBLIC_SITE_URL', 'SUPPORT_EMAIL', 'MONKEYS', 'PASSAGE', 'DBA_TEAM', 'EMAIL_FROM']) expect(isSecretName(n), n).toBe(false);
+    });
+
+    it('compares ANY variable whose value is a URL with credentials, whatever its name; a plain URL is not compared', () => {
+      for (const v of ['postgres://svc:p4ssw0rd@db.example.com:5432/app', 'https://hooks.example.com/x?token=abcdef123456', 'redis://:secretpw@cache.example.com:6379', 'https://api.example.com/v1?api_key=abc123def456']) {
+        expect(valueHasCredentials(v), v).toBe(true);
+        expect(Object.keys(secretValues({ WEBHOOK_TARGET_URL: v })), v).toEqual(['WEBHOOK_TARGET_URL']);
+      }
+      for (const v of ['https://holler.example.com', 'https://example.com/a/b?page=2', 'postgres://db.example.com:5432/app', 'not a url', '']) {
+        expect(valueHasCredentials(v), v).toBe(false);
+        expect(Object.keys(secretValues({ WEBHOOK_TARGET_URL: v })), v).toEqual([]);
+      }
+      expect(Object.keys(secretValues({ NEXT_PUBLIC_SITE_URL: 'https://u:p@x.example.com/' }))).toEqual([]); // public by name
+      // And the value is found in a chunk.
+      const url = 'postgres://svc:p4ssw0rd-long@db.example.com:5432/app';
+      expect(rec(`x="${url}"`, secretValues({ WEBHOOK_TARGET_URL: url })).reads.map((r) => `${r.rule}:${r.name}`)).toEqual(['secret-value:WEBHOOK_TARGET_URL']);
+    });
+
+    it('the allow-list refuses the same names', () => {
+      const hostile = { DATABASE_URL: 'x', POSTGRES_URL: 'x', API_KEYS: 'x', PASSPHRASE: 'x', DEPLOY_PRIVATE_KEY: 'x', SUPABASE_JWT: 'x', SENTRY_DSN: 'x' };
+      expect(allowListProblems(envKeys, hostile).sort()).toEqual(Object.keys(hostile).sort());
+      for (const n of Object.keys(hostile)) expect(isAllowed(n, envKeys, hostile), n).toBe(false);
+    });
+
+    it('a value under 8 characters is never printed: while one exists in the environment, no context text is printed at all (names only)', () => {
+      const short = { DB_PASSWORD: 'abc123', STRIPE_SECRET_KEY: 'sk_live_51ABCdefGHIjklMNOpqrSTU' };
+      expect(hasShortSecret(short)).toBe(true);
+      expect(hasShortSecret({ STRIPE_SECRET_KEY: short.STRIPE_SECRET_KEY, EMPTY_PASSWORD: '' })).toBe(false);
+      const chunk = 'x=process.env.HOLLER_BIDS_ENABLED+"abc123";y=e.env.CRON_SECRET;children:"HOLLER_LSR_ENABLED is off abc123"';
+      const r = rec(chunk, short);
+      expect(r.reads.map((x) => `${x.rule}:${x.name}`)).toEqual(['env-member:HOLLER_BIDS_ENABLED', 'env-member:CRON_SECRET']);
+      expect(printedOf(r)).not.toContain('abc123');
+      expect(r.reads.every((x) => x.context.startsWith('(context not printed'))).toBe(true);
+      expect(r.mentions.every((x) => x.context.startsWith('(context not printed'))).toBe(true);
+      // main(): the whole log, server and source rules included.
+      vi.stubEnv('DB_PASSWORD', 'abc123');
+      const base = mkdtempSync(join(tmpdir(), 'r35-check-'));
+      try {
+        const { next, proj, staticDir } = vercelLikeBuild(base, 'no-env');
+        writeFileSync(join(staticDir, 'chunks', 'a.js'), chunk);
+        writeFileSync(join(next, 'server', 'chunks', 'bad.js'), 'x=e.default.env?.HOLLER_ROAD_WORDS_ENABLED+"abc123"');
+        writeFileSync(join(proj, 'lib', 'bad.ts'), 'export const b = process.env?.HOLLER_ROAD_WORDS_ENABLED + "abc123";\n');
+        const log: string[] = [];
+        expect(checkMain([staticDir], (l: string) => log.push(l), proj)).toBe(1);
+        const all = log.join('\n');
+        expect(all).not.toContain('abc123');
+        for (const rule of ['env-member HOLLER_BIDS_ENABLED', 'inlined-read-left HOLLER_ROAD_WORDS_ENABLED', 'inlined-optional-read HOLLER_ROAD_WORDS_ENABLED']) expect(all, rule).toContain(`FAIL ${rule}`);
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('R35 P2-4: npm_package_version is not allowed (no library reads it; an app read would render differently on the server and in the browser)', () => {
+    expect(isAllowed('npm_package_version', envKeys)).toBe(false);
+    expect(Object.keys(CLIENT_ENV_ALLOW)).not.toContain('npm_package_version');
+    expect(readNames('x=process.env.npm_package_version')).toEqual(['env-member:npm_package_version']);
+    expect(readNames('let{npm_package_version:v}=process.env;')).toEqual(['env-destructure:npm_package_version']);
   });
 
   it('runs inside npm run build (so a Vercel build fails), and rolldown is a pinned devDependency', () => {

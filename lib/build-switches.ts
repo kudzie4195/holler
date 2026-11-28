@@ -14,8 +14,10 @@
  * Only on/off switches belong here, never a key or a secret: inlinedSwitchEnv inlines "1" or "" (the parsed answer), never the raw text.
  * next.config.ts passes the whole `env` block through normalizeSwitchEnv, so ANY entry (one added by another change too) is inlined as the
  * parsed answer, and a name that is not an on/off switch stops the build. `npm run build` then runs scripts/check-client-switches.mjs,
- * which fails the build if a browser chunk still reads a server variable at runtime, or if a server bundle still reads an inlined name
- * in a form Next does not replace (`process.env?.NAME`).
+ * which fails the build if a browser chunk still reads a server variable at runtime, or if a server bundle or a source file still reads an
+ * inlined name in a form Next does not replace (`process.env?.NAME`). The check takes the inlined names from THIS list (INLINED_SWITCHES
+ * below, read as text), not from .next/required-server-files.json: on Vercel Next writes no `env` into that manifest, so a rule that
+ * depended on it never ran there. Add a switch to the list and the check covers it on every build, Vercel included.
  *
  * Which names normalizeSwitchEnv accepts: every HOLLER_<WORDS>_ENABLED, and the five older on/off switches in OTHER_SWITCHES below, by name
  * (never "any name"). They are read by different rules, so each is inlined by ITS rule (see SwitchReading).
@@ -46,7 +48,16 @@ export function inlinedSwitchEnv(source: Record<string, string | undefined> = pr
  */
 export type SwitchReading = 'on-words' | 'default-on' | 'one' | 'one-raw';
 
-/** The on/off switches whose names are not HOLLER_<WORDS>_ENABLED. Nothing else may be inlined; add a name here only with its reading. */
+/**
+ * The on/off switches whose names are not HOLLER_<WORDS>_ENABLED. Nothing else may be inlined; add a name here only with its reading.
+ * Accepting a name here inlines nothing by itself: only INLINED_SWITCHES (above) goes into next.config.ts `env`, and none of these five is
+ * listed there today. tests/ops/client-switches.test.ts holds each mapping to the real reader named in the comment (same answer for the raw
+ * text and for the inlined text, on every input), so a change to either side fails a test.
+ * Before listing one of them in INLINED_SWITCHES, know that three readers (lookupSettings, previewFixturesEnabled, sandboxGrantsAllowed) take
+ * `process.env` whole as a parameter. Next replaces only a literal `process.env.NAME`, so for those three the server would keep reading the
+ * real variable at runtime and only a browser reader would see the inlined value. That is harmless on Vercel, where a deployment's runtime
+ * variables are the variables it was built with, but it means listing them would change nothing the server reads.
+ */
 export const OTHER_SWITCHES: Readonly<Record<string, SwitchReading>> = {
   REQUESTS_ENABLED: 'default-on', // lib/requests/enabled.ts requestsEnabled
   HOLLER_PROBATION_FETCH: 'default-on', // lib/signals/probation-fetch.ts probationFetchOn
