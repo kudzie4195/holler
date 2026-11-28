@@ -26,7 +26,7 @@ import {
   type CardBriefInput,
   isInteriorDemolitionCard,
   isCommercialSaleTitle,
-  pwWhyKind,
+  pwWhyKey,
 } from './brief';
 import { BID_LIST_LINK_LABEL, BID_PORTAL_LINK_LABEL, bidSourceLinkLabel } from './bid-card';
 import { isResidentialHeatTitle, companyNameOf } from './managed-by';
@@ -123,8 +123,8 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
   const work = workForLang(trade, lang);
   const max = MAX_WHY_BY_LANG[lang];
   // Round 35 (HOLLER_PW_RULES_ENABLED): a card shown under the pressure-washing trade says what a washer acts on (brief.ts PW_WHY).
-  const pwKind = pwWhyKind(input, label, trade);
-  if (pwKind) return t(lang, key(`brief.pw.${pwKind}`));
+  const pwKey = pwWhyKey(input, label, trade);
+  if (pwKey) return t(lang, key(pwKey));
   const routedParts = family === 'permit' && label === 'coming_soon' ? routeParts(input.title, trade, { summary: input.summary, source: input.source }) : null;
   if (routedParts) {
     const noun = t(lang, NOUN_KEY[routedParts.noun]);

@@ -3,6 +3,7 @@ import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, pwDecides, pwMemberLabel, pwRuleOf, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { isPwMember, PW_TRADE } from './pw-switch';
+import { pwCapDecisions, pwPlaceOf, type PwPast } from './pw-caps';
 import { stormFactsOf } from './wind-damage';
 import { weatherFactsOf } from './weather-hazard';
 import { bidsEnabled, erateHidden, isBidSignal } from './bid-sources';
@@ -397,6 +398,28 @@ export function pickHits(hitsIn: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USE
 }
 
 /**
+ * Round 35: a pw member's hits after the volume caps (lib/signals/pw-caps.ts), decided best first (label, then score): a second card for a
+ * block or a building this week is dropped, a graffiti heads-up over today's cap is held (feed only). Only cards shown under the pw trade
+ * are capped; a card another trade of the member gave is kept as it is.
+ */
+export function pwCapped(hits: readonly Hit[], nowMs: number, past: readonly PwPast[], historyKnown = true): Hit[] {
+  const order = hits
+    .map((h, i) => ({ h, i }))
+    .sort((a, b) => labelRank(a.h) - labelRank(b.h) || scoreOfHit(b.h) - scoreOfHit(a.h) || b.h.s.severity - a.h.s.severity || a.i - b.i);
+  const cards = order.map(({ h }) => ({
+    place: h.trade === PW_TRADE ? pwPlaceOf(pwRuleOf(labelInputOf(h.s)).kind, { summary: h.s.summary, lat: h.s.lat, lon: h.s.lon, subtype: subtypeOf(h.s), kind: h.s.kind }) : null,
+    alert: !h.hold && isAlertLabel(h.label ?? 'coming_soon'),
+  }));
+  const decided = pwCapDecisions(cards, past, nowMs, historyKnown);
+  const out: Hit[] = [];
+  order.forEach(({ h }, k) => {
+    if (decided[k] === 'drop') return;
+    out.push(decided[k] === 'hold' ? { ...h, hold: 'held' } : h);
+  });
+  return out;
+}
+
+/**
  * Match new signals to profiles. Per user: business rows capped, then most severe first, then newest, capped at `cap`.
  * Cost control (P1-2): the area test runs before any text test; each record's searchable text is built at most once per scan; and
  * the answer to "does record i contain phrase p" is kept for the scan, so profiles that watch the same phrase share the work.
@@ -408,6 +431,12 @@ export function matchSignals(
   now: Date = new Date(),
   /** City bids on or off for this call. Defaults to the HOLLER_BIDS_ENABLED flag, read once per call. */
   bidsOn: boolean = bidsEnabled(),
+  /**
+   * Round 35 (HOLLER_PW_RULES_ENABLED): what each pressure-washing member already holds from the last 7 days, for the volume caps
+   * (lib/signals/pw-caps.ts; the scan and the rematch read it with lib/signals/pw-history.ts). A member listed in `unknown` (the read
+   * failed) has every graffiti alert held. Absent: an empty history, so the caps still apply inside this call. Never read for other members.
+   */
+  pw: { history?: ReadonlyMap<string, readonly PwPast[]>; unknown?: ReadonlySet<string> } = {},
 ): MatchRow[] {
   const out: MatchRow[] = [];
   const n = signals.length;
@@ -480,7 +509,8 @@ export function matchSignals(
       const competitors = h.trade ? (members.get(`${idx[k]}\u0000${h.trade}`) ?? null) : null;
       h.score = scoreHit(h.s, h.trade ?? null, nowMs, competitors);
     }
-    for (const h of pickHits(hits, nowMs, cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi, ...(h.hold ? { alert_hold: h.hold } : {}) });
+    const kept = isPwMember(matchScope(p).categories) ? pwCapped(hits, nowMs, pw.history?.get(p.user_id) ?? [], !pw.unknown?.has(p.user_id)) : hits;
+    for (const h of pickHits(kept, nowMs, cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi, ...(h.hold ? { alert_hold: h.hold } : {}) });
   }
   return out;
 }
@@ -493,6 +523,21 @@ export function matchSignals(
 export function membersOfTrade(signal: MatchSignal, trade: string, profiles: readonly MatchProfile[], bidsOn: boolean = bidsEnabled()): number {
   if (isProbationSource(signal.source)) return 0;
   const cats = seenBy(signal);
+  // Round 35 (review P3): the pw cards' competition is the other pw members who would get the card under "pressure-washing".
+  if (trade === PW_TRADE) {
+    let pw = 0;
+    for (const p of profiles) {
+      const scope = matchScope(p);
+      if (!isPwMember(scope.categories) || !areaMatch(signal, p, scope, bidsOn)) continue;
+      if (!tradeMatch(cats, scope) && !pwSees(signal, scope)) continue;
+      const work = workOfProfile(p);
+      const gate = gateInputOf(signal);
+      if (propertyDrops(gate, work)) continue;
+      const { label, trade: t } = labelInScope(signal, cats, scope);
+      if (t === PW_TRADE && isFeedLabel(label)) pw++;
+    }
+    return pw;
+  }
   if (!cats.includes(trade)) return 0;
   let n = 0;
   for (const p of profiles) {

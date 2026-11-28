@@ -1,9 +1,11 @@
 import { matchArea, matchOne, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { matchScope } from '@/lib/plan';
 import { expandTradeIds } from '@/lib/plan/composite-trades';
-import { contactPathOf, licenceGateApplies } from '@/lib/signals/alert-gate';
+import { contactPathOf, licenceKeepsHold } from '@/lib/signals/alert-gate';
 import { isPermitRecord } from '@/lib/signals/permit-routing';
-import { deadlineOf, demoteExpired, isAlertLabel, labelForMember, recordLabelInput } from '@/lib/signals/lead-rules';
+import { deadlineOf, demoteExpired, isAlertLabel, labelForMember, pwRuleOf, recordLabelInput } from '@/lib/signals/lead-rules';
+import { isPwMember } from '@/lib/signals/pw-switch';
+import { pwCapTimeline, pwPlaceOf } from '@/lib/signals/pw-caps';
 import { CHECK_RADIUS_MI } from './scope';
 
 /**
@@ -59,7 +61,7 @@ function asMatchSignal(s: CheckSignal): MatchSignal {
     kind: s.kind,
   };
   // The contact gate input, as the scan sets it (lib/signals/run.ts contactPathOf(contacts, summary)), with the contacts unknown (see above).
-  return isPermitRecord({ source: s.source, kind: s.kind, subtype: sub }) || licenceGateApplies({ subtype: sub }) ? { ...base, contactPath: contactPathOf([], s.summary) } : base;
+  return isPermitRecord({ source: s.source, kind: s.kind, subtype: sub }) || licenceKeepsHold({ subtype: sub }) ? { ...base, contactPath: contactPathOf([], s.summary) } : base;
 }
 
 /**
@@ -104,14 +106,26 @@ export function checkInMemberArea(s: CheckSignal, zip: { lat: number; lon: numbe
  * the records the trade would be shown, with their delivery) minus those outside the member's area. The record fields are dropped here,
  * so nothing but the fields the page showed before leaves this function.
  */
-export function memberItems<T extends { signal?: CheckSignal }>(items: readonly T[], zip: { lat: number; lon: number; state: string }, trade: string | readonly string[]): Omit<T, 'signal'>[] {
+export function memberItems<T extends { signal?: CheckSignal; delivery?: CheckDelivery; occurredAt?: string }>(items: readonly T[], zip: { lat: number; lon: number; state: string }, trade: string | readonly string[]): Omit<T, 'signal'>[] {
+  const inArea = items.filter((it) => !(it.signal && !checkInMemberArea(it.signal, zip, trade)));
+  // Round 35 (HOLLER_PW_RULES_ENABLED): a pressure-washing member gets one card per block or building a week and at most 3 graffiti alerts
+  // a day (lib/signals/pw-caps.ts), counted here day by day as the scan would send them.
+  const decided = isPwMember(memberTrades(trade))
+    ? pwCapTimeline(
+        inArea.map((it) => {
+          const s = it.signal;
+          const kind = s ? pwRuleOf(recordLabelInput({ ...s, subtype: typeof s.data?.subtype === 'string' ? (s.data.subtype as string) : null })).kind : null;
+          return { place: s ? pwPlaceOf(kind, { summary: s.summary, lat: s.lat, lon: s.lon, subtype: typeof s.data?.subtype === 'string' ? (s.data.subtype as string) : null, kind: s.kind }) : null, alert: it.delivery === 'email', at: Date.parse(it.occurredAt ?? s?.occurred_at ?? '') || 0 };
+        }),
+      )
+    : null;
   const out: Omit<T, 'signal'>[] = [];
-  for (const it of items) {
-    if (it.signal && !checkInMemberArea(it.signal, zip, trade)) continue;
-    const copy = { ...it };
+  inArea.forEach((it, k) => {
+    if (decided?.[k] === 'drop') return;
+    const copy = { ...it, ...(decided?.[k] === 'hold' ? { delivery: 'feed' as CheckDelivery } : {}) };
     delete copy.signal;
     out.push(copy);
-  }
+  });
   return out;
 }
 

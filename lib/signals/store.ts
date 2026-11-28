@@ -10,8 +10,9 @@ import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
-import { contactPathOf, licenceGateApplies, missingHoldColumn, withoutHold, type ContactLike } from './alert-gate';
+import { contactPathOf, licenceKeepsHold, missingHoldColumn, withoutHold, type ContactLike } from './alert-gate';
 import { businessTagFixEnabled } from './mapping/business-flag';
+import { pwRulesEnabled } from './pw-switch';
 import { isPermitRecord } from './permit-routing';
 import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
@@ -595,7 +596,7 @@ export async function markStoredContactPaths(
   opts: { permits?: boolean } = {},
 ): Promise<void> {
   const subtypeOf = (s: MatchSignal) => s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null);
-  const isLicence = (s: MatchSignal) => licenceGateApplies({ subtype: subtypeOf(s) });
+  const isLicence = (s: MatchSignal) => licenceKeepsHold({ subtype: subtypeOf(s) });
   const wantPermits = opts.permits !== false;
   const permits = signals.filter(
     (s) => s.contactPath === undefined && ((wantPermits && isPermitRecord({ kind: s.kind ?? null, subtype: subtypeOf(s) })) || isLicence(s)),
@@ -674,7 +675,7 @@ export async function insertMatches(
         // logged as an alert. Any other held row (a permit while PostgREST still has the old schema cache) is stored as before round 33: the
         // caller's row loses the hold too, so the card is stored and logged as the plain alert it is. The two groups go in separate upserts
         // (a mixed batch would give the rows without notified a null).
-        const licences = businessTagFixEnabled() && opts.licenceIds ? group.filter((r) => opts.licenceIds?.has(r.signal_id)) : [];
+        const licences = (businessTagFixEnabled() || pwRulesEnabled()) && opts.licenceIds ? group.filter((r) => opts.licenceIds?.has(r.signal_id)) : [];
         const others = licences.length ? group.filter((r) => !licences.includes(r)) : group;
         for (const r of others) {
           delete r.alert_hold;

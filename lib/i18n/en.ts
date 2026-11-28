@@ -195,12 +195,16 @@ export const en = {
   'brief.pw.deck': 'A deck or porch permit was filed nearby; new wood is often cleaned and sealed.',
   'brief.pw.fence': 'A fence permit was filed nearby; new fences are often washed and sealed.',
   'brief.pw.concrete': 'A concrete permit was filed nearby; new drives and patios may need sealing.',
-  'brief.pw.fit-out': 'A tenant fit-out permit was filed nearby; a new storefront may need a wash.',
+  'brief.pw.fit-out': 'A new storefront permit was filed nearby; the outside may need a wash.',
   'brief.pw.new-home': 'A new home nearby reached its final stage; a first exterior wash may follow.',
   'brief.pw.storefront': 'A new business license was filed nearby; storefronts often need washing.',
-  'brief.pw.graffiti': 'Graffiti on private property was reported nearby; the owner pays to remove it.',
+  'brief.pw.graffiti': 'Graffiti on private property was reported nearby; a clean-up may follow.',
   'brief.pw.exterior-order': 'A city order nearby names an exterior that needs cleaning.',
   'brief.pw.storm-debris': 'A storm report was filed nearby; any debris may need washing off.',
+  'brief.pw.other': 'This record is in your area; pressure washing work does not usually follow it.',
+  'brief.pw.feed.new-home': 'A new-home permit was filed nearby; a first wash may come once it is built.',
+  'brief.pw.feed.permit': 'A permit nearby names outside work; it is here to keep you informed.',
+  'brief.pw.severe-weather': 'A severe weather warning covers this area; clean-up work may follow.',
 
   // why it matters: one sentence per (family, label)
   'brief.why.weather-alert.coming_soon': 'A weather alert was issued for your area; {work} may follow.',

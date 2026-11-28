@@ -218,9 +218,10 @@ export const GENERIC_WORK = 'work you do';
 export const PW_WORK = 'pressure washing work';
 
 /**
- * Round 35 (HOLLER_PW_RULES_ENABLED): the reason line of a card shown under the pressure-washing trade, one per rule kind
- * (lib/signals/lead-rules.ts pwRuleOf). Each says what the record is and what may follow; none says a hire happened or that damage is
- * confirmed. At most MAX_WHY characters (tests/signals/pw-rules.test.ts). Spanish: brief.pw.<kind> in lib/i18n/es.ts.
+ * Round 35 (HOLLER_PW_RULES_ENABLED): the reason line of a card shown under the pressure-washing trade, on EVERY path (alert, feed only,
+ * saved, stage update; round 35 review P1-2): the generic sentences print the permit's type, and a pw card's type can read "Roof, HVAC,
+ * siding and flooring". Each line says what the record is and what may follow; none says a hire happened, who pays, or that damage is
+ * confirmed. At most MAX_WHY characters (tests/signals/pw-rules.test.ts). Spanish: the same keys in lib/i18n/es.ts.
  */
 export const PW_WHY: Readonly<Record<PwKind, string>> = {
   painting: 'A painting permit was filed nearby; walls are often washed before paint.',
@@ -228,24 +229,44 @@ export const PW_WHY: Readonly<Record<PwKind, string>> = {
   deck: 'A deck or porch permit was filed nearby; new wood is often cleaned and sealed.',
   fence: 'A fence permit was filed nearby; new fences are often washed and sealed.',
   concrete: 'A concrete permit was filed nearby; new drives and patios may need sealing.',
-  'fit-out': 'A tenant fit-out permit was filed nearby; a new storefront may need a wash.',
+  'fit-out': 'A new storefront permit was filed nearby; the outside may need a wash.',
   'new-home': 'A new home nearby reached its final stage; a first exterior wash may follow.',
   storefront: 'A new business license was filed nearby; storefronts often need washing.',
-  graffiti: 'Graffiti on private property was reported nearby; the owner pays to remove it.',
+  graffiti: 'Graffiti on private property was reported nearby; a clean-up may follow.',
   'exterior-order': 'A city order nearby names an exterior that needs cleaning.',
   'storm-debris': 'A storm report was filed nearby; any debris may need washing off.',
+  'severe-weather': 'A severe weather warning covers this area; clean-up work may follow.',
+};
+
+/** The other pw lines, by dictionary key (brief.pw.feed.*, brief.pw.other). Same rules as PW_WHY. */
+export const PW_WHY_MORE: Readonly<Record<'brief.pw.feed.permit' | 'brief.pw.feed.new-home' | 'brief.pw.other', string>> = {
+  // A feed-only permit (outside the value range, no type word, a large fit-out): never repeats its type, which may name a roof.
+  'brief.pw.feed.permit': 'A permit nearby names outside work; it is here to keep you informed.',
+  // A new home before its final stage: never says it is finished.
+  'brief.pw.feed.new-home': 'A new-home permit was filed nearby; a first wash may come once it is built.',
+  // A record the pw rules do not want, still in the feed because the member saved or finished it.
+  'brief.pw.other': 'This record is in your area; pressure washing work does not usually follow it.',
 };
 
 /**
- * The pw reason line for this record and label, or null. Only for a card shown under the pw trade: an alert, or the storm-debris feed card
- * (its sentence says only that a report was filed). A feed-only permit (a new home before its final stage, a job outside the value range)
- * keeps the generic market-insight sentence, so a sentence never says more than the record does.
+ * The dictionary key of a pw card's reason line (brief.pw.<kind>, brief.pw.feed.*, brief.pw.other), or null when the card is not shown
+ * under the pw trade. Every label gets a pw line, so a pw card never falls through to a generic sentence.
  */
-export function pwWhyKind(input: BriefInput, label: string, trade: string | null | undefined): PwKind | null {
+export function pwWhyKey(input: BriefInput, label: string, trade: string | null | undefined): string | null {
   if (trade !== PW_TRADE) return null;
   const kind = pwReasonKind({ source: input.source, kind: input.kind ?? null, subtype: input.subtype ?? null, title: input.title ?? null, summary: input.summary ?? null });
-  if (label === 'coming_soon' || label === 'act_now') return kind;
-  return label === 'market_insight' && kind === 'storm-debris' ? kind : null;
+  if (!kind) return 'brief.pw.other';
+  if (label === 'coming_soon' || label === 'act_now') return `brief.pw.${kind}`;
+  if (kind === 'storm-debris' || kind === 'severe-weather') return `brief.pw.${kind}`;
+  if (kind === 'new-home') return 'brief.pw.feed.new-home';
+  if (kind === 'storefront' || kind === 'graffiti' || kind === 'exterior-order') return `brief.pw.${kind}`;
+  return 'brief.pw.feed.permit';
+}
+
+/** The English pw reason line for a key pwWhyKey gives. */
+export function pwWhyText(key: string): string {
+  if (key.startsWith('brief.pw.feed.') || key === 'brief.pw.other') return PW_WHY_MORE[key as keyof typeof PW_WHY_MORE];
+  return PW_WHY[key.slice('brief.pw.'.length) as PwKind];
 }
 
 export function workFor(trade: string | null | undefined): string {
@@ -748,8 +769,8 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   };
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
-  const pwKind = pwWhyKind(input, label, trade);
-  const routed = pwKind ? PW_WHY[pwKind] : family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
+  const pwKey = pwWhyKey(input, label, trade);
+  const routed = pwKey ? pwWhyText(pwKey) : family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
   const interiorDemo = !routed && isInteriorDemolitionCard(label, family, trade, input.title) ? interiorDemolitionWhy(ctx.permitType) : null;
   const reason = reasonCopyFor(input);
   const reasonWhy = reason?.copy.why ? fillReason(reason.copy.why, workFor(trade), ctx.permitType) : null;

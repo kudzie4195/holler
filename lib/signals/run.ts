@@ -9,6 +9,8 @@ import { ProjectStore, rearmStageAlerts } from './projects';
 import { markRepeats } from './repeat-marks';
 import { matchScope } from '@/lib/plan';
 import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
+import { isPwMember, PW_PARTS, PW_TRADE } from './pw-switch';
+import { loadPwHistory } from './pw-history';
 import { isProbationNote } from './probation-note';
 import { PROBATION_FETCH_FLAG, probationFetchOn } from './probation-fetch';
 import {
@@ -26,7 +28,7 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
-import { contactPathOf, holdOf, licenceGateApplies, missingHoldColumn } from './alert-gate';
+import { contactPathOf, holdOf, licenceKeepsHold, missingHoldColumn } from './alert-gate';
 import { isPermitRecord } from './permit-routing';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
@@ -323,7 +325,7 @@ export function markContactPaths(inserted: StoredSignal[], built: readonly Signa
   const byKey = new Map<string, SignalInput>();
   for (const b of built) byKey.set(`${b.source}\u0000${b.externalId}`, b);
   for (const r of inserted) {
-    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null }) && !licenceGateApplies({ subtype: r.subtype ?? null })) continue;
+    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null }) && !licenceKeepsHold({ subtype: r.subtype ?? null })) continue;
     const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
     let contacts: ReturnType<typeof sanitizeContacts> = [];
     try {
@@ -476,10 +478,12 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       try {
         const profiles = await loadProfiles(db, now);
         // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
-        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null }) || licenceGateApplies({ subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
+        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null }) || licenceKeepsHold({ subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
         // The permit gate needs 0027; the licence hold (switch on) does not: a held licence is stored as already handled either way.
-        if (!gateOn) for (const s of storedAll) if (!licenceGateApplies({ subtype: s.subtype ?? null })) s.contactPath = undefined;
-        const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
+        if (!gateOn) for (const s of storedAll) if (!licenceKeepsHold({ subtype: s.subtype ?? null })) s.contactPath = undefined;
+        // Round 35 (HOLLER_PW_RULES_ENABLED): the pressure-washing volume caps read what each pw member already holds (no read otherwise).
+        const pwHistory = await loadPwHistory(db, profiles, now);
+        const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now, undefined, pwHistory);
         // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
         // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
         // holds the card gets it re-sent once as a stage update. Per member: at most MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY a UTC day, and
@@ -508,7 +512,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
               // Migration 0027 is not applied after all: no card is feed-only. Every card of this scan is stored as a plain alert (insertMatches
               // drops the hold too) and every stage update goes out exactly as before round 18.
               // A held new-business licence (round 33) keeps its hold here: insertMatches stores it as already handled without the column.
-              const licenceIds = new Set(storedAll.filter((s) => licenceGateApplies({ subtype: s.subtype ?? null })).map((s) => s.id));
+              const licenceIds = new Set(storedAll.filter((s) => licenceKeepsHold({ subtype: s.subtype ?? null })).map((s) => s.id));
               for (const r of rows) if (!licenceIds.has(r.signal_id)) delete r.alert_hold;
               for (const sig of stageSignals) sig.contactPath = undefined;
             }
@@ -525,13 +529,17 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           for (const r of rows) if (!r.alert_hold) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
           for (const p of profiles) {
             // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
-            const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
+            const scopeCats = matchScope(p).categories;
+            // Round 35 (review P2-5): a pw member is asked with both pw trades, so the pw rules decide the stage card (a new home at final
+            // inspection is their move-in wash) and the stage step never stores a card the pw feed would hide.
+            const pwStage = isPwMember(scopeCats);
+            const mine = pwStage ? [...new Set([...scopeCats.filter((c) => isStageTrade(c)), ...PW_PARTS])] : scopeCats.filter((c) => isStageTrade(c));
             if (mine.length === 0) continue;
             const hits: Array<{ sig: StoredSignal; fresh: boolean; distance: number | null; score: number }> = [];
             for (const sig of stageSignals) {
               const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
               // A card that is feed-only for this member (below their minimum job value, migration 0027) gets no stage update either.
-              if (!hit || hit.label !== 'coming_soon' || hit.hold || !isStageTrade(hit.trade)) continue;
+              if (!hit || hit.label !== 'coming_soon' || hit.hold || !(isStageTrade(hit.trade) || (pwStage && hit.trade === PW_TRADE))) continue;
               // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
               const held = have.get(`${p.user_id}\u0000${sig.id}`);
               if (held !== undefined && held !== 'new') continue;
@@ -562,7 +570,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         // A held row is stored as already handled (notified, pushed_at): the email and push runs never read it again (review P3-4). If
         // 0027 turns out to be missing, insertMatches drops all three keys and the card is stored exactly as before round 18.
         for (const r of rows) if (r.alert_hold) Object.assign(r, { notified: true, pushed_at: now.toISOString() });
-        await insertMatches(db, rows, { licenceIds: new Set(storedAll.filter((s) => licenceGateApplies({ subtype: s.subtype ?? null })).map((s) => s.id)) });
+        await insertMatches(db, rows, { licenceIds: new Set(storedAll.filter((s) => licenceKeepsHold({ subtype: s.subtype ?? null })).map((s) => s.id)) });
         if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; liveFetched.find((x) => x.adapter.id === src)?.result.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;

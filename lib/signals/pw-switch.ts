@@ -1,5 +1,5 @@
 /**
- * Round 35: the switch for the pressure-washing rule set (lib/signals/lead-rules.ts pwLabelOf). HOLLER_PW_RULES_ENABLED is OFF unless "1",
+ * Round 35: the switch for the pressure-washing rule set (lib/signals/lead-rules.ts pwRuleOf, pwMemberLabel; caps in lib/signals/pw-caps.ts). HOLLER_PW_RULES_ENABLED is OFF unless "1",
  * "true", "on" or "yes" (any case). Off, a member with House cleaning AND Siding and gutters (the sign-up "Pressure washing" chip,
  * lib/plan/composite-trades.ts) gets exactly what those two trades got before: every label, card, email and replay row is unchanged.
  *
