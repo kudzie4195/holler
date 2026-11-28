@@ -59,6 +59,7 @@ export const ENV_KEYS = [
   'HOLLER_MANUAL_BIDS_ENABLED',
   'HOLLER_OWNER_USER_ID',
   'HOLLER_ROAD_WORDS_ENABLED',
+  'HOLLER_CITY_BIDS_R35_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -136,6 +137,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_BUSINESS_TAG_FIX_ENABLED: process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED,
   // Round 33: E-Rate school and library network bids (lib/signals/adapters/erate.ts); read at call time in lib/signals/bid-sources.ts. Off unless 1, true, on or yes.
   HOLLER_ERATE_ENABLED: process.env.HOLLER_ERATE_ENABLED,
+  // Round 35: Gwinnett County's own open solicitation list (lib/signals/adapters/gwinnett-site.ts); read again at call time there. Off unless 1, true, on or yes.
+  HOLLER_CITY_BIDS_R35_ENABLED: process.env.HOLLER_CITY_BIDS_R35_ENABLED,
   // Round 33: hail size and gust routing plus the alert line on weather cards (lib/signals/weather-hazard.ts hailRoutingEnabled). Read again at call time there.
   HOLLER_HAIL_ROUTING_ENABLED: process.env.HOLLER_HAIL_ROUTING_ENABLED,
   // Round 33: NWS local storm reports from the Iowa Environmental Mesonet (lib/signals/adapters/lsr.ts lsrEnabled). Read again at call time there.

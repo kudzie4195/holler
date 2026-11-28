@@ -12,6 +12,7 @@ import { JOHNS_CREEK_PERMITS } from '@/lib/signals/adapters/arcgis-johnscreek';
 import { SALES_DATASETS } from '@/lib/signals/adapters/sales-datasets';
 import { HOUSTON_PERMITS_DS } from '@/lib/signals/adapters/houston-permits-config';
 import { LOCAL_BID_SOURCES } from '@/lib/firecrawl/local-sources';
+import { GWINNETT_SEAT, GWINNETT_SITE_ID } from '@/lib/signals/adapters/gwinnett-site';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { isResidentialHeatTitle, managedByLineFrom } from '@/lib/signals/managed-by';
 import { isBehind, type SourceState } from '@/lib/signals/source-state';
@@ -228,6 +229,8 @@ export function sourcePlaces(): Map<string, string | null> {
     ...SALES_DATASETS,
     ...BID_DATASETS,
     ...LOCAL_BID_SOURCES,
+    // Round 35: Gwinnett's own list (plain fetch), placed by the county seat like the Firecrawl page of the same list.
+    { id: GWINNETT_SITE_ID, ...GWINNETT_SEAT },
     // Round 20 page watch: placed by the agency office ZIP like the Firecrawl agency pages.
     ...PAGE_WATCH_DATASETS,
   ];

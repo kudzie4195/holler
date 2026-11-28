@@ -37,6 +37,8 @@ export const BID_SOURCE_IDS: readonly string[] = [
   'bids-rockdale',
   'bids-tucker',
   'bids-dunwoody',
+  // Round 35: Gwinnett County's own list read with one plain request (lib/signals/adapters/gwinnett-site.ts), behind HOLLER_CITY_BIDS_R35_ENABLED.
+  'bids-gwinnett-site',
   // Round 33: USAC E-Rate FCC Form 470 requests from schools and libraries (lib/signals/adapters/erate.ts).
   ERATE_SOURCE_ID,
   // Round 20 page watch (lib/signals/adapters/page-watch-datasets.ts): public bid pages read with a plain fetch, on probation.
