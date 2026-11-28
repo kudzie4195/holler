@@ -101,6 +101,11 @@ export interface Summary {
   stale_cleared: number;
   failed: number;
   retried: number;
+  /**
+   * Round 35: matches the follow-up filter left out of the emails built in this run (HOLLER_FOLLOWUP_FILTER_ENABLED, lib/signals/followup-filter.ts),
+   * by reason. A dry run counts what it would leave out. Absent while the switch is off. An email built twice (a retry) counts twice.
+   */
+  followup_dropped?: { retired: number; bid_hidden: number; held: number };
   would_send?: { user_id: string; kind: LifecycleKind; variant: string }[];
 }
 
@@ -117,6 +122,7 @@ export async function buildMail(
   p: FullProfile,
   deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor' | 'langFor'>,
   now: Date,
+  onDropped?: (d: { retired: number; bid_hidden: number; held: number }) => void,
 ): Promise<Built | null> {
   const base = deps.siteUrl.replace(/\/$/, '');
   let lang: Lang = 'en';
@@ -137,6 +143,7 @@ export async function buildMail(
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
+    if (m.dropped) onDropped?.(m.dropped);
     if (m.total > 0) {
       return { ...renderWelcomeMatches({ ...common, total: m.total, capped: m.capped, items: m.items.slice(0, 5) }), variant: 'matches' };
     }
@@ -146,6 +153,7 @@ export async function buildMail(
   }
   if (kind === 'trial_ending') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
+    if (m.dropped) onDropped?.(m.dropped);
     let rank = deps.rank;
     if (deps.rankFor) {
       try {
@@ -221,6 +229,13 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
   const dry = !!deps.dry;
   const s = emptySummary(dry);
   const { store } = deps;
+  const noteDropped = (d: { retired: number; bid_hidden: number; held: number }) => {
+    const tally = s.followup_dropped ?? { retired: 0, bid_hidden: 0, held: 0 };
+    tally.retired += d.retired;
+    tally.bid_hidden += d.bid_hidden;
+    tally.held += d.held;
+    s.followup_dropped = tally;
+  };
 
   const profiles = await store.loadProfiles(now);
   s.considered = profiles.length;
@@ -302,7 +317,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
           s.skipped_trial_extended++;
           continue;
         }
-        const m = await buildMail(c.kind, p, deps, now);
+        const m = await buildMail(c.kind, p, deps, now, noteDropped);
         if (!m) s.skipped_no_data++;
         else s.would_send.push({ user_id: c.userId, kind: c.kind, variant: m.variant });
       } catch {
@@ -365,7 +380,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
         s.skipped_returning++;
         return 'done';
       }
-      const mail = await buildMail(c.kind, p, deps, now);
+      const mail = await buildMail(c.kind, p, deps, now, noteDropped);
       if (!mail) {
         await giveBack();
         s.skipped_no_data++;

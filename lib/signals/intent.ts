@@ -103,6 +103,8 @@ export function intentLine(signal: IntentInput, lang: Lang = 'en'): string {
   if (key === 'open-bid' && samLabelsEnabled() && norm(signal.source) === 'sam-gov') {
     if (isEarlyNoticeType(samTypeOf(signal.summary))) return t(lang, 'sam.early.intent_line');
     if (isSoleSourceSetAside(signal.setAside)) return t(lang, 'sam.sole.intent_line');
+    // Round 35: an ordinary federal bid in Spanish (the English line was returned to a Spanish member before). English is the same words.
+    if (lang !== 'en') return t(lang, 'sam.bid.intent_line');
   }
   return LINE_BY_KEY[key];
 }

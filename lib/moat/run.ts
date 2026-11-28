@@ -2,6 +2,7 @@ import { parseLang, type Lang } from '@/lib/i18n';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk, decideNotify, signUnsubscribeToken, type PlanProfile } from '@/lib/email';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
+import { FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled } from '@/lib/signals/followup-filter';
 import { ASK_AFTER_DAYS, ASK_WINDOW_DAYS, EMAIL_GAP_DAYS, EMAIL_MAX_ALERTS } from './outcome';
 import { signOutcomeToken } from './token';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
@@ -37,6 +38,12 @@ export interface MoatRunCounts {
   skipped_ineligible: number;
   send_failed: number;
   failed: number;
+  /**
+   * Round 35: candidates left out by the follow-up filter (HOLLER_FOLLOWUP_FILTER_ENABLED, lib/signals/followup-filter.ts): a bid whose source
+   * switch is off (or an E-Rate row with HOLLER_ERATE_ENABLED empty), or a hand-added bid the owner retired. Absent while the switch is off.
+   * A dry run counts the same. Left-out candidates are not asked, so they are read again next run while inside the window.
+   */
+  followup_dropped?: { bid_hidden: number; retired: number };
 }
 
 interface Cand {
@@ -52,6 +59,11 @@ interface Sig {
   city: string | null;
   state: string | null;
   occurred_at: string;
+  /** Round 35 (FOLLOWUP_SIGNAL_SELECT, read only while the follow-up filter is on). */
+  subtype?: string | null;
+  expires_at?: string | null;
+  dueDate?: string | null;
+  retiredAt?: string | null;
 }
 interface Prof extends PlanProfile {
   business_name: string;
@@ -121,16 +133,30 @@ export async function runMoat(args: {
   cands = cands.slice(0, MAX_CANDIDATES);
 
   // Public signal fields only. A resident request is never asked about.
+  // Round 35: the same bid switches and retirement the feed applies (a bid that has simply closed is still asked about: that is when "did it
+  // lead to work?" is asked). Off, nothing below differs from before.
+  const filterOn = followupFilterEnabled();
   const sigs = new Map<number, Sig>();
   for (const ids of chunk([...new Set(cands.map((c) => c.signal_id))])) {
-    const r = await db.from('holler_signals').select('id, source, kind, title, city, state, occurred_at').in('id', ids);
+    const columns: string = filterOn ? `id, source, kind, title, city, state, occurred_at, subtype:data->>subtype, ${FOLLOWUP_SIGNAL_SELECT}` : 'id, source, kind, title, city, state, occurred_at';
+    const r = await db.from('holler_signals').select(columns).in('id', ids);
     if (r.error) throw new Error(`signals read failed: ${r.error.message}`);
-    for (const s of (r.data ?? []) as Sig[]) sigs.set(s.id, s);
+    for (const s of (r.data ?? []) as unknown as Sig[]) sigs.set(s.id, s);
   }
+  const dropped = { bid_hidden: 0, retired: 0 };
   cands = cands.filter((c) => {
     const s = sigs.get(c.signal_id);
-    return !!s && s.source !== HOLLER_REQUEST_SOURCE;
+    if (!s || s.source === HOLLER_REQUEST_SOURCE) return false;
+    if (filterOn) {
+      const why = followupDrop(s, null, { nowMs: now.getTime(), keepClosed: true });
+      if (why === 'retired' || why === 'bid_hidden') {
+        dropped[why]++;
+        return false;
+      }
+    }
+    return true;
   });
+  if (filterOn) counts.followup_dropped = dropped;
   counts.candidates = cands.length;
 
   const byUser = new Map<string, Cand[]>();

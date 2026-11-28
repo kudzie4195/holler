@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { isFeedLabel, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
+import { missingHoldColumn } from '../signals/alert-gate';
+import { FOLLOWUP_SIGNAL_SELECT, followupDrop, followupFilterEnabled, type FollowupDrop } from '../signals/followup-filter';
 import { STAGE_SELECT } from '../signals/stage';
 import { WEATHER_SELECT } from '../signals/weather-hazard';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
@@ -29,6 +31,11 @@ export interface MatchesOf {
   items: (AlertItem & { id: number })[];
   total: number;
   capped: boolean;
+  /**
+   * Round 35: how many matches the follow-up filter left out, by reason (lib/signals/followup-filter.ts). Present only while
+   * HOLLER_FOLLOWUP_FILTER_ENABLED is on; absent otherwise, so the answer is what it was.
+   */
+  dropped?: Record<FollowupDrop, number>;
 }
 
 export interface QuietPreview {
@@ -101,6 +108,10 @@ interface SignalEmbed {
   /** Round 33: WEATHER_SELECT aliases (an NWS alert's hail size and gust), passed to the labeller only. */
   maxHailSizeIn?: string | null;
   maxWindGustMph?: string | null;
+  /** Round 35 (FOLLOWUP_SIGNAL_SELECT, only while the follow-up filter is on): what the bid test reads. */
+  expires_at?: string | null;
+  dueDate?: string | null;
+  retiredAt?: string | null;
 }
 
 export function createStore(db: Db): LifecycleStore {
@@ -178,20 +189,38 @@ export function createStore(db: Db): LifecycleStore {
     },
 
     async matchesOf(userId, trades) {
-      const { data, error } = await db
-        .from('holler_matches')
-        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT}, ${WEATHER_SELECT})`)
-        .eq('user_id', userId)
-        .neq('status', 'dismissed')
-        .order('created_at', { ascending: false })
-        .limit(MATCH_ROW_CAP);
+      // Round 35: with HOLLER_FOLLOWUP_FILTER_ENABLED on, the read also takes what the feed's bid test and the alert hold need. Off, the select is
+      // the one below, character for character.
+      const filter = followupFilterEnabled();
+      const signalColumns = `id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT}, ${WEATHER_SELECT}`;
+      const read = (withHold: boolean) =>
+        db
+          .from('holler_matches')
+          .select(`status, ${withHold ? 'alert_hold, ' : ''}signal:holler_signals(${signalColumns}${filter ? `, ${FOLLOWUP_SIGNAL_SELECT}` : ''})`)
+          .eq('user_id', userId)
+          .neq('status', 'dismissed')
+          .order('created_at', { ascending: false })
+          .limit(MATCH_ROW_CAP);
+      let { data, error } = await read(filter);
+      // Before migration 0027 there is no alert_hold column: read again without it (bids and retired bids are still filtered).
+      if (error && filter && missingHoldColumn(error)) ({ data, error } = await read(false));
       if (error) throw new Error(`matches: ${error.message}`);
-      const rows = (data ?? []) as unknown as { status?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
+      const rows = (data ?? []) as unknown as { status?: string | null; alert_hold?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
       const items: (AlertItem & { id: number })[] = [];
+      const dropped: Record<FollowupDrop, number> = { retired: 0, bid_hidden: 0, held: 0 };
+      const nowMs = Date.now();
       for (const r of rows) {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
+        // Round 35: what the feed and the alert email already hide is never named in a follow-up email either (lib/signals/followup-filter.ts).
+        if (filter) {
+          const why = followupDrop(s, r, { nowMs });
+          if (why) {
+            dropped[why]++;
+            continue;
+          }
+        }
         // Round 19 integration: the same label input as the feed (recordLabelInput: summary, permit stage, place) and the same rule for a
         // match the member saved or marked done (keptMatchLabel: it stays listed as a feed item whatever its label is now).
         const label = trades
@@ -213,7 +242,7 @@ export function createStore(db: Db): LifecycleStore {
         });
       }
       items.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
-      return { items, total: items.length, capped: rows.length >= MATCH_ROW_CAP };
+      return { items, total: items.length, capped: rows.length >= MATCH_ROW_CAP, ...(filter ? { dropped } : {}) };
     },
 
     async quietPreview(profile, now) {

@@ -195,3 +195,35 @@ export const SAM_SELECT = 'samSetAside:data->>setAside';
 export function hasSetAsideLine(source: string | null | undefined, stored: unknown, lang: Lang = 'en', on: boolean = samLabelsEnabled()): boolean {
   return on && source === 'sam-gov' && setAsideLabel(stored, null, lang) !== null;
 }
+
+/** Round 35: what a federal notice's email should say it is instead of "Federal bid": an early notice, a planned sole source, or an ordinary bid (null). */
+export type SamOpener = 'early' | 'sole';
+
+/**
+ * The honest opener of a federal notice's alert email (round 35): 'early' for a Sources Sought, Presolicitation or Intent to Bundle notice,
+ * 'sole' for a sole-source set-aside code, null for every other record. An early notice wins over a sole-source code. Always null while
+ * HOLLER_SAM_LABELS_ENABLED is off and for any source but sam-gov, so the email is what it was before round 35.
+ */
+export function samOpenerOf(s: { source: string | null | undefined; summary?: string | null; type?: unknown; setAside?: unknown }, on: boolean = samLabelsEnabled()): SamOpener | null {
+  if (!on || s.source !== 'sam-gov') return null;
+  if (isEarlyNoticeType(samTypeOf(s.summary, s.type))) return 'early';
+  if (isSoleSourceSetAside(s.setAside)) return 'sole';
+  return null;
+}
+
+/** `{ samOpener }` for a card that has one, else `{}`: spread into an email item so a switch-off item carries no new key. */
+export function samOpenerField(s: { source?: string | null; summary?: string | null; samSetAside?: unknown }, on: boolean = samLabelsEnabled()): { samOpener?: SamOpener } {
+  const samOpener = samOpenerOf({ source: s.source, summary: s.summary, setAside: s.samSetAside }, on);
+  return samOpener ? { samOpener } : {};
+}
+
+/**
+ * "Federal bid in Denver, CO: Janitorial" as "Early notice from a federal agency in Denver, CO: Janitorial" or "Planned sole source in
+ * Denver, CO: Janitorial" (and the Spanish twins). A title that is not the adapter's "Federal bid in <place>: <text>" comes back unchanged.
+ */
+export function samOpenerTitle(title: string, opener: SamOpener | null | undefined, lang: Lang = 'en'): string {
+  if (!opener || typeof title !== 'string') return title;
+  const m = /^Federal bid in (.+?): ([\s\S]*)$/.exec(title);
+  if (!m) return title;
+  return t(lang, opener === 'early' ? 'sam.title.early' : 'sam.title.sole', { place: m[1], text: m[2] });
+}
