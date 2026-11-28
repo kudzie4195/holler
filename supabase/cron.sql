@@ -60,7 +60,7 @@ where jobname in (
 -- STEP 3. The nine jobs. Eight are an HTTP GET with the header  Authorization: Bearer <CRON_SECRET>
 -- to https://<SITE>/api/cron/<name>. Each fires and forgets; the response lands in net._http_response (kept for about 6 hours).
 -- holler-events-prune is plain SQL. Minutes in use: scan 0,15,30,45; health 3 (13:03 daily); ai 4; notify 7,22,37,52; monitor 11;
--- lifecycle 17; dataforseo 23 (days 1 to 3); events-prune 29 (Sundays 04:29); moat 41 (18:41 daily). No two jobs start in the
+-- lifecycle 17; dataforseo 23 (days 1 to 5); events-prune 29 (Sundays 04:29); moat 41 (18:41 daily). No two jobs start in the
 -- same minute.
 -- ---------------------------------------------------------------------------
 
@@ -112,12 +112,14 @@ select cron.schedule(
   $job$
 );
 
--- holler-dataforseo: 03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 3rd of each month. Monthly keyword volume and AI mention check.
--- One run cannot finish all 40 batches inside 60 s, so it fires four times a day for three days; a run with nothing left to do spends nothing.
+-- holler-dataforseo: 03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 5th of each month. Monthly job: AI mention check, location mode (40 requests,
+-- the four launch metros) and national keyword volume (about 40 batches). One run fits about 8 requests in 60 s, so it fires four times a day for five
+-- days (round 35: was three days, before location mode was added); a run with nothing left to do spends nothing.
+-- Round 35: it spends nothing unless HOLLER_KEYWORD_VOLUME_ENABLED is on (Vercel); off, the route answers status "disabled".
 -- Needs DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD on Vercel (without them the route answers not_configured and spends nothing).
 select cron.schedule(
   'holler-dataforseo',
-  '23 3,9,15,21 1-3 * *',
+  '23 3,9,15,21 1-5 * *',
   $job$
   select net.http_get(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'holler_site_url') || '/api/cron/dataforseo',

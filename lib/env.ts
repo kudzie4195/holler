@@ -44,6 +44,7 @@ export const ENV_KEYS = [
   'DATAFORSEO_LOGIN',
   'DATAFORSEO_PASSWORD',
   'DATAFORSEO_MONTHLY_CAP_USD',
+  'HOLLER_KEYWORD_VOLUME_ENABLED',
   'HOLLER_LOOKUP_MAX_PER_RUN',
   'HOLLER_LOOKUP_MAX_PER_DAY',
   'HOLLER_LOOKUP_DRY_RUN',
@@ -118,6 +119,8 @@ export const env: Record<EnvKey, string | undefined> = {
   DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
   DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
   DATAFORSEO_MONTHLY_CAP_USD: process.env.DATAFORSEO_MONTHLY_CAP_USD,
+  // Round 35: the monthly DataForSEO job (keyword volume, location mode, AI mention check) spends nothing unless this is 1, true, on or yes. Server only; read at call time in lib/dataforseo/switch.ts.
+  HOLLER_KEYWORD_VOLUME_ENABLED: process.env.HOLLER_KEYWORD_VOLUME_ENABLED,
   // Round 18 business listing lookup (lib/enrich/business-lookup.ts lookupSettings reads them again from process.env).
   HOLLER_LOOKUP_MAX_PER_RUN: process.env.HOLLER_LOOKUP_MAX_PER_RUN,
   HOLLER_LOOKUP_MAX_PER_DAY: process.env.HOLLER_LOOKUP_MAX_PER_DAY,
