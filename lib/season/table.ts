@@ -24,7 +24,7 @@
  * independent date check /home/claude/gates/r30/review/VERIFY.md, all as of 2026-11-24 (VERIFY.md's corrections are applied: fescue
  * Sep 1 to Oct 1 in the NC Piedmont, pre-emergent by end of February in Raleigh and mid-February near Austin, Charlotte first freeze
  * Nov 5, Raleigh leaf window Oct 25 to Dec 10, no "leaves mostly down by late November", the gutter window as Holler's own estimate).
- * Edit dates here only: nothing else reads them.
+ * Edit dates here only: nothing else reads them. Round 35 rows (switch HOLLER_SEASON_R35_ENABLED, default off) live in lib/season/table-r35.ts.
  */
 
 /** The measured centres the season table covers (lib/check/cells.ts CENTRE_SOURCE ids; coordinates come from there, never from here). */
@@ -39,7 +39,7 @@ export interface SeasonRow {
   /** Unique, stable: `<topic>-<centre>`. */
   id: string;
   /** The event, shared by the same window in every metro. At most one line per topic is shown. */
-  topic: 'gutters' | 'leaf-cleanup' | 'irrigation-winterize' | 'pre-emergent' | 'pollen' | 'fescue-seeding' | 'listing-prep';
+  topic: 'gutters' | 'leaf-cleanup' | 'irrigation-winterize' | 'pre-emergent' | 'pollen' | 'fescue-seeding' | 'listing-prep' | 'armyworm';
   /** The measured centre this row belongs to (lib/check/cells.ts). The row applies within 25 miles of it. */
   centre: SeasonCentre;
   /** Holler trade ids (lib/signals/categories.ts). The member reaches the row through any one of them, except as `allTrades` says. */

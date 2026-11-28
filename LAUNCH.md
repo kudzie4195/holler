@@ -91,6 +91,20 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    sends the same bytes as before. Set it to `1` (Preview first, one real-inbox test, then Production) to add the "This week in your
    area" line (lib/season/table.ts) to the alert digest and, with the quiet-week switch also on, to the quiet-week email. For the
    December 1 launch week it must be `1` by the Dec 1 cron run. /check shows the line without any switch.
+   NEEDS KUDZI (round 35 season rows): `HOLLER_SEASON_R35_ENABLED` stays empty at the deploy. Off, "This week in your area" (/check, /es/check,
+   the alert digest, the quiet-week email) reads exactly the round 30 rows, as before. On (1, true, on or yes): 12 more rows from
+   lib/season/table-r35.ts. Fall armyworm for lawn care (Atlanta Aug 1 to Sep 30, Charlotte and Raleigh Jul 25 to Oct 15, Austin Aug 15 to
+   Oct 15), and spring pollen lines for the trades the round 30 pollen line does not reach: house cleaning (all four metros), gutters
+   (Atlanta, Charlotte, Raleigh, Apr 15 to May 10, the line says "after the peak") and, in Austin only, pressure washing (March and April oak
+   pollen; the round 30 Austin line is the winter cedar season). A pressure washer in Atlanta, Charlotte or Raleigh keeps the round 30 wash
+   line until Apr 25, then (like the round 30 gutter rows) gets the gutter line Apr 26 to May 10; in Austin there is no gutter row, so
+   a pressure washer there gets nothing after the wash line ends Apr 30. The May 10 end of the gutter window is Holler's estimate (NC State and
+   FOX 5 give a pollen peak, no end for gutter work).
+   Never two pollen lines, never the house-cleaning line. Every booking window reads "Holler estimates that ..."; no line states damage or a
+   health effect. HOW TO TURN ON: set it to `1` in Vercel, then REDEPLOY: a Vercel env change reaches a running deployment only after a new
+   deploy (the code reads it per request, but the running deployment still holds the old value). ROLLBACK: empty it and REDEPLOY; until that
+   deploy the new lines stay live on /check and in the emails. Sources, what was not added and why, and the gate results are in the body of
+   PR 28 (kudzie4195/holler). The emails also need `HOLLER_SEASON_ENABLED`; /check shows the rows with this switch alone.
    NEEDS KUDZI (round 33 business licences): `HOLLER_BUSINESS_TAG_FIX_ENABLED` stays empty at the deploy. Off, the scan tags every new-business
    licence with the same fixed trade set as before. Set it to `1` (Production, after reading gates/r33/r33-la-business/REPORT.md) to tag a
    licence only by its own type (a shop, a restaurant, a parking lot or a storage facility; every other licence gets no trade and is not

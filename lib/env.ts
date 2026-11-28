@@ -50,6 +50,7 @@ export const ENV_KEYS = [
   'HOLLER_PREVIEW_FIXTURES',
   'HOLLER_QUIET_WEEK_ENABLED',
   'HOLLER_SEASON_ENABLED',
+  'HOLLER_SEASON_R35_ENABLED',
   'HOLLER_SAM_BACKFILL_ENABLED',
   'HOLLER_SAM_LABELS_ENABLED',
   'HOLLER_BUSINESS_TAG_FIX_ENABLED',
@@ -128,6 +129,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
   // Round 30: the season line in the alert and quiet-week emails (lib/season/active.ts seasonEmailEnabled). Read again at call time there.
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
+  // Round 35: the second batch of season rows (lib/season/table-r35.ts, read through lib/season/active.ts seasonTable). Read again at call time there; server code only. Off unless 1, true, on or yes.
+  HOLLER_SEASON_R35_ENABLED: process.env.HOLLER_SEASON_R35_ENABLED,
   // Round 33: the one-off SAM.gov backfill (scripts/sam-backfill.ts, lib/signals/sam-backfill.ts). Read at call time there; no cron or page reads it.
   HOLLER_SAM_BACKFILL_ENABLED: process.env.HOLLER_SAM_BACKFILL_ENABLED,
   // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Off unless 1, true, on or yes. Round 34: inlined at build (lib/build-switches.ts).
