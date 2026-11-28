@@ -13,6 +13,7 @@ const SECRET = 'right-secret-for-tests-0123456789';
 const ROUTES = [
   'admin/coverage-probe',
   'admin/firecrawl-probe',
+  'admin/keyword-volume',
   'admin/license-probe',
   'admin/lookup-probe',
   'admin/metros',

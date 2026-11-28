@@ -45,7 +45,7 @@ describe('supabase/cron.sql', () => {
     expect(code).toMatch(/cron\.schedule\(\s*'holler-scan',\s*'\*\/15 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-notify',\s*'7,22,37,52 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-health',\s*'3 13 \* \* \*'/);
-    expect(code).toMatch(/cron\.schedule\(\s*'holler-dataforseo',\s*'23 3,9,15,21 1-3 \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-dataforseo',\s*'23 3,9,15,21 1-5 \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-ai',\s*'4 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-monitor',\s*'11 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-lifecycle',\s*'17 \* \* \* \*'/);
@@ -56,7 +56,7 @@ describe('supabase/cron.sql', () => {
   });
   it('no two jobs share a start minute, with no exception (health moved to 13:03, off the scan minute)', () => {
     // Expand each 5-field schedule to the set of (day-of-week, hour, minute) it can fire at, for one week; day-of-month is ignored
-    // (dataforseo runs on days 1 to 3 only, which can only remove clashes).
+    // (dataforseo runs on days 1 to 5 only, which can only remove clashes).
     const field = (f: string, max: number) => {
       if (f === '*') return Array.from({ length: max }, (_, i) => i);
       if (f.startsWith('*/')) return Array.from({ length: max }, (_, i) => i).filter((i) => i % Number(f.slice(2)) === 0);
